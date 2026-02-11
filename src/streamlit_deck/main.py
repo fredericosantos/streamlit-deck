@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-from src.backend import config, executor
+from streamlit_deck.backend import config, executor
 
 # Page Config
 st.set_page_config(

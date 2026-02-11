@@ -10,42 +10,46 @@ A customizable Stream Deck implementation running on your local machine, control
 - **Multiple Profiles**: Switch between different button layouts.
 - **Web Interface**: Accessible from any device on your local network/tailnet.
 
-## Installation
+## Quick Start (via `uvx`)
+
+You can run the application directly from the repository using `uvx` (part of the `uv` toolchain). This is the recommended way to try it out without cloning manually.
+
+```bash
+uvx --from git+https://github.com/fredericosantos/streamlit-deck streamlit-deck
+```
+
+This command will:
+1.  Download the application.
+2.  Install dependencies in an isolated environment.
+3.  Launch the Streamlit server.
+4.  Create `layouts/` and `scripts/` directories in your current folder for your configuration.
+
+## Installation (Manual)
 
 1.  **Clone & Install**:
     ```bash
-    git clone <repo_url>
+    git clone https://github.com/fredericosantos/streamlit-deck
     cd streamlit-deck
     uv sync
     ```
 
-    *Note: This project uses `uv` for dependency management.*
-
-2.  **Platform Specifics (macOS)**:
-    -   You may need to grant **Accessibility** permissions to your terminal (e.g., iTerm, Terminal) or Python for `pyautogui` to control the keyboard.
-    -   Go to `System Settings` -> `Privacy & Security` -> `Accessibility` and add your terminal application.
+2.  **Run**:
+    ```bash
+    uv run streamlit run src/streamlit_deck/main.py
+    ```
 
 ## Usage
 
-1.  **Start the App**:
-    ```bash
-    uv run streamlit run app.py
-    ```
-
-2.  **Access**:
+1.  **Access**:
     -   Open the URL shown in the terminal (usually `http://localhost:8501`) on your local machine.
-    -   To access from your iPad/Phone, ensure you are on the same network (or Tailnet) and use the `Network URL` displayed in the terminal output.
+    -   To access from your iPad/Phone, ensure you are on the same network (or Tailnet) and use the `Network URL`.
 
-3.  **Configuration**:
+2.  **Configuration**:
     -   Toggle **Edit Mode** in the sidebar.
     -   Click a button in the grid to configure it.
-    -   Choose **Hotkey** or **Script**.
     -   **Hotkeys**: Enter keys separated by `+` (e.g., `command+space`, `ctrl+alt+delete`).
-    -   **Scripts**: Add executable scripts to the `scripts/` directory, then select them in the dropdown.
-
-## adding Scripts
-
-Place your executable scripts (`.sh`, `.py`, `.bat`) in the `scripts/` directory. Ensure they have execution permissions (`chmod +x script.sh`).
+    -   **Scripts**: Add executable scripts to the `scripts/` directory (created in your current folder), then select them in the dropdown.
+    -   **Important**: Ensure scripts have execution permissions (`chmod +x script.sh`).
 
 ## Dependencies
 

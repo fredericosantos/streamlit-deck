@@ -1,3 +1,6 @@
+[project.scripts]
+streamlit-deck = "streamlit_deck.cli:run"
+
 [project]
 name = "streamlit-deck"
 version = "0.1.0"
