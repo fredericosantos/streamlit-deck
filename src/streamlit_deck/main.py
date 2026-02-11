@@ -71,6 +71,43 @@ st.session_state.edit_mode = st.sidebar.toggle(
     "Edit Mode", value=st.session_state.edit_mode
 )
 
+# --- Grid Settings (Only in Edit Mode) ---
+if st.session_state.edit_mode:
+    with st.sidebar.expander("Grid Settings", expanded=True):
+        rows = layout.get("rows", 2)
+        cols = layout.get("cols", 2)
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.caption("Rows")
+            if st.button("➖", key="dec_row"):
+                layout["rows"] = max(1, rows - 1)
+                config.save_layout(st.session_state.current_layout_name, layout)
+                st.rerun()
+            st.markdown(
+                f"<div style='text-align: center; font-size: 20px; font-weight: bold;'>{rows}</div>",
+                unsafe_allow_html=True,
+            )
+            if st.button("➕", key="inc_row"):
+                layout["rows"] = min(8, rows + 1)
+                config.save_layout(st.session_state.current_layout_name, layout)
+                st.rerun()
+
+        with c2:
+            st.caption("Columns")
+            if st.button("➖", key="dec_col"):
+                layout["cols"] = max(1, cols - 1)
+                config.save_layout(st.session_state.current_layout_name, layout)
+                st.rerun()
+            st.markdown(
+                f"<div style='text-align: center; font-size: 20px; font-weight: bold;'>{cols}</div>",
+                unsafe_allow_html=True,
+            )
+            if st.button("➕", key="inc_col"):
+                layout["cols"] = min(8, cols + 1)
+                config.save_layout(st.session_state.current_layout_name, layout)
+                st.rerun()
+
 # --- Editor Panel (Sidebar) ---
 if st.session_state.edit_mode and st.session_state.selected_button:
     st.sidebar.header("Edit Button")
@@ -133,37 +170,51 @@ if st.session_state.edit_mode and st.session_state.selected_button:
             st.rerun()
 
 # --- Main Grid ---
-rows = layout.get("rows", 4)
-cols = layout.get("cols", 3)
+rows = layout.get("rows", 2)
+cols = layout.get("cols", 2)
 
 # Grid Layout
-for r in range(rows):
-    columns = st.columns(cols)
-    for c in range(cols):
-        btn_id = f"{r}-{c}"
-        btn_data = layout["buttons"].get(btn_id, {})
-        label = btn_data.get("label", "➕" if st.session_state.edit_mode else "")
+with st.container(border=True):
+    for r in range(rows):
+        columns = st.columns(cols)
+        for c in range(cols):
+            btn_id = f"{r}-{c}"
+            btn_data = layout["buttons"].get(btn_id, {})
 
-        # If empty in run mode, show nothing or placeholder?
-        # Better to show empty button so layout is preserved.
+            # Default state:
+            # Edit Mode: Show "➕" if empty
+            # Run Mode: Show nothing (empty space) if empty
 
-        with columns[c]:
-            # Unique key is crucial
-            clicked = st.button(label, key=f"btn_{r}_{c}", use_container_width=True)
+            label = btn_data.get("label", "")
+            if not label and st.session_state.edit_mode:
+                label = "➕"
 
-            if clicked:
-                if st.session_state.edit_mode:
-                    st.session_state.selected_button = (r, c)
-                    st.rerun()
+            with columns[c]:
+                if label:
+                    # Unique key is crucial
+                    clicked = st.button(
+                        label, key=f"btn_{r}_{c}", use_container_width=True
+                    )
+
+                    if clicked:
+                        if st.session_state.edit_mode:
+                            st.session_state.selected_button = (r, c)
+                            st.rerun()
+                        else:
+                            # Execute Action
+                            if btn_data:
+                                msg = executor.execute_action(
+                                    btn_data.get("type"), btn_data.get("action")
+                                )
+                                st.toast(msg)
                 else:
-                    # Execute Action
-                    if btn_data:
-                        msg = executor.execute_action(
-                            btn_data.get("type"), btn_data.get("action")
-                        )
-                        st.toast(msg)
-                    else:
-                        pass  # Empty button
+                    # Render empty placeholder to maintain grid alignment
+                    st.markdown(
+                        "<div style='height: 100px;'></div>", unsafe_allow_html=True
+                    )
+                    # If in edit mode, we want this to be clickable to add a button.
+                    # But st.button with empty label is weird.
+                    # The logic above sets label="➕" in edit mode, so we only fall here in Run Mode.
 
 # --- Footer / Info ---
 if st.session_state.edit_mode:

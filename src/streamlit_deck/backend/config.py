@@ -51,8 +51,8 @@ def create_default_layout(name: str) -> Dict[str, Any]:
     """Create a default empty layout structure."""
     return {
         "name": name,
-        "rows": 4,
-        "cols": 3,
+        "rows": 2,  # Start small
+        "cols": 2,  # Start small
         "buttons": {},  # Keyed by "row-col", e.g. "0-0": { ... }
     }
 
