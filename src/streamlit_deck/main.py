@@ -159,6 +159,7 @@ cols = layout.get("cols", 2)
 # Grid Layout
 with st.container(border=True):
     for r in range(rows):
+        columns = st.columns(cols)
         for c in range(cols):
             btn_id = f"{r}-{c}"
             btn_data = layout["buttons"].get(btn_id, {})
@@ -174,41 +175,37 @@ with st.container(border=True):
             if not label and st.session_state.edit_mode:
                 label = "➕"
 
-            if label:
-                # Create a row for this button with icon and button columns
-                with st.container():
-                    cols_for_button = st.columns(
-                        [1, 4], gap="small"
-                    )  # Icon column narrower than button column
+            with columns[c]:
+                if label:
+                    # Determine button type (primary if selected in edit mode)
+                    btn_display_type = "secondary"
+                    if (
+                        st.session_state.edit_mode
+                        and st.session_state.selected_button == (r, c)
+                    ):
+                        btn_display_type = "primary"
 
-                    with cols_for_button[0]:
-                        # Display icon in first column
-                        icon_bytes = None
-                        if btn_type == "app" and action:
-                            app_name = None
-                            # Find app name from command using APPS_REVERSE
-                            for name, data in APPS_DICT.items():
-                                if (
-                                    isinstance(data, dict)
-                                    and data.get("command") == action
-                                ):
-                                    app_name = name
-                                    break
+                    # Prepare icon for app buttons
+                    icon_bytes = None
+                    if btn_type == "app" and action:
+                        app_name = None
+                        # Find app name from command using APPS_REVERSE
+                        for name, data in APPS_DICT.items():
+                            if isinstance(data, dict) and data.get("command") == action:
+                                app_name = name
+                                break
 
-                            if app_name and APPS_DICT[app_name].get("icon_bytes"):
-                                icon_bytes = APPS_DICT[app_name]["icon_bytes"]
+                        if app_name and APPS_DICT[app_name].get("icon_bytes"):
+                            icon_bytes = APPS_DICT[app_name]["icon_bytes"]
 
+                    # Create mini-row within each grid cell: icon + button label
+                    cell_cols = st.columns([1, 3], gap="small")  # Icon column narrower
+
+                    with cell_cols[0]:
+                        # Display icon in first mini-column
                         display_icon_in_column(icon_bytes, size=48)
 
-                    with cols_for_button[1]:
-                        # Determine button type (primary if selected in edit mode)
-                        btn_display_type = "secondary"
-                        if (
-                            st.session_state.edit_mode
-                            and st.session_state.selected_button == (r, c)
-                        ):
-                            btn_display_type = "primary"
-
+                    with cell_cols[1]:
                         # Unique key is crucial
                         # Add shortcut for quick access (numbers for first 9 buttons)
                         shortcut = None
@@ -237,6 +234,14 @@ with st.container(border=True):
                                         btn_data.get("type"), btn_data.get("action")
                                     )
                                     st.toast(msg)
+                else:
+                    # Render empty placeholder to maintain grid alignment
+                    st.markdown(
+                        "<div style='height: 100px;'></div>", unsafe_allow_html=True
+                    )
+                    # If in edit mode, we want this to be clickable to add a button.
+                    # But st.button with empty label is weird.
+                    # The logic above sets label="➕" in edit mode, so we only fall here in Run Mode.
 
 # Global keyboard shortcut handler for grid buttons (numbers 1-9)
 if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
