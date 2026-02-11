@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import tempfile
 from streamlit_deck.backend import config, executor, apps
 
 # Page Config
@@ -160,28 +161,85 @@ with st.container(border=True):
                                 break
 
                         if app_name and APPS_DICT[app_name].get("icon_bytes"):
-                            # Show icon above button
-                            st.image(APPS_DICT[app_name]["icon_bytes"], width=32)
+                            # Use image button component instead of separate icon + button
+                            from st_image_button import st_image_button
 
-                    # Unique key is crucial
-                    clicked = st.button(
-                        label,
-                        key=f"btn_{r}_{c}",
-                        use_container_width=True,
-                        type=btn_display_type,
-                    )
+                            # Save icon bytes to temporary PNG file
+                            with tempfile.NamedTemporaryFile(
+                                suffix=".png", delete=False
+                            ) as tmp:
+                                tmp.write(APPS_DICT[app_name]["icon_bytes"])
+                                tmp.flush()
 
-                    if clicked:
-                        if st.session_state.edit_mode:
-                            st.session_state.selected_button = (r, c)
-                            st.rerun()
-                        else:
-                            # Execute Action
-                            if btn_data:
-                                msg = executor.execute_action(
-                                    btn_data.get("type"), btn_data.get("action")
+                                # Use image button component
+                                clicked = st_image_button(
+                                    text=label,  # Button text/label
+                                    image=tmp.name,  # Path to temp image file
+                                    width="48px",  # Size as requested
+                                    variant="outlined"
+                                    if btn_display_type == "secondary"
+                                    else "filled",
+                                    key=f"deck_img_btn_{r}_{c}",
                                 )
-                                st.toast(msg)
+
+                                # Clean up temp file
+                                try:
+                                    os.unlink(tmp.name)
+                                except:
+                                    pass  # File might still be in use
+
+                                if clicked:
+                                    if st.session_state.edit_mode:
+                                        st.session_state.selected_button = (r, c)
+                                        st.rerun()
+                                    else:
+                                        # Execute Action
+                                        if btn_data:
+                                            msg = executor.execute_action(
+                                                btn_data.get("type"),
+                                                btn_data.get("action"),
+                                            )
+                                            st.toast(msg)
+                        else:
+                            # Fallback to regular button if no icon found
+                            clicked = st.button(
+                                label,
+                                key=f"btn_{r}_{c}",
+                                use_container_width=True,
+                                type=btn_display_type,
+                            )
+
+                            if clicked:
+                                if st.session_state.edit_mode:
+                                    st.session_state.selected_button = (r, c)
+                                    st.rerun()
+                                else:
+                                    # Execute Action
+                                    if btn_data:
+                                        msg = executor.execute_action(
+                                            btn_data.get("type"), btn_data.get("action")
+                                        )
+                                        st.toast(msg)
+                    else:
+                        # Regular button for non-app actions
+                        clicked = st.button(
+                            label,
+                            key=f"btn_{r}_{c}",
+                            use_container_width=True,
+                            type=btn_display_type,
+                        )
+
+                        if clicked:
+                            if st.session_state.edit_mode:
+                                st.session_state.selected_button = (r, c)
+                                st.rerun()
+                            else:
+                                # Execute Action
+                                if btn_data:
+                                    msg = executor.execute_action(
+                                        btn_data.get("type"), btn_data.get("action")
+                                    )
+                                    st.toast(msg)
                 else:
                     # Render empty placeholder to maintain grid alignment
                     st.markdown(
@@ -253,12 +311,12 @@ if st.session_state.edit_mode and st.session_state.selected_button:
     EXTENDED_CHAR_REVERSE = {v: k for k, v in EXTENDED_CHAR_MAP.items()}
 
     MEDIA_MAP = {
-        "playpause": "⏯ Play/Pause",
-        "volumemute": "🔇 Mute",
-        "volumeup": "🔊 Vol Up",
-        "volumedown": "🔉 Vol Down",
-        "nexttrack": "⏭ Next",
-        "prevtrack": "⏮ Prev",
+        "playpause": ":material/play_arrow: Play/Pause",
+        "volumemute": ":material/volume_off: Mute",
+        "volumeup": ":material/volume_up: Vol Up",
+        "volumedown": ":material/volume_down: Vol Down",
+        "nexttrack": ":material/skip_next: Next",
+        "prevtrack": ":material/skip_previous: Prev",
     }
     MEDIA_REVERSE = {v: k for k, v in MEDIA_MAP.items()}
 
@@ -577,35 +635,77 @@ if st.session_state.edit_mode and st.session_state.selected_button:
         # 4. Applications (New)
         with st.expander("Applications"):
             if APPS_LIST:
+                # Import the image button component
+                from st_image_button import st_image_button
+                import tempfile
+
                 # Create a 3-column grid for app selection
                 app_cols = st.columns(3)
                 for i, app_name in enumerate(APPS_LIST):
                     with app_cols[i % 3]:
                         app_data = APPS_DICT[app_name]
 
-                        # Create smaller button with image above it
+                        # Create image button if icon available
                         if app_data.get("icon_bytes"):
-                            st.image(app_data["icon_bytes"], width=48)
+                            # Save icon bytes to temporary PNG file
+                            with tempfile.NamedTemporaryFile(
+                                suffix=".png", delete=False
+                            ) as tmp:
+                                tmp.write(app_data["icon_bytes"])
+                                tmp.flush()
 
-                        if st.button(
-                            app_name,
-                            key=f"app_select_{app_name}",
-                            use_container_width=True,
-                        ):
-                            # Use a safer approach - clear the session state first
-                            if "draft_basic" in st.session_state:
-                                st.session_state.pop("draft_basic")
-                            if "draft_extended" in st.session_state:
-                                st.session_state.pop("draft_extended")
-                            if "draft_script" in st.session_state:
-                                st.session_state.pop("draft_script")
-                            if "draft_media" in st.session_state:
-                                st.session_state.pop("draft_media")
-                            if "draft_mouse" in st.session_state:
-                                st.session_state.pop("draft_mouse")
+                                # Use image button component
+                                clicked = st_image_button(
+                                    text=app_name,  # Button text/title
+                                    image=tmp.name,  # Path to temp image file
+                                    width="48px",  # Size as requested
+                                    variant="outlined",  # Clean outlined style
+                                    key=f"app_img_btn_{app_name}",
+                                )
 
-                            st.session_state.draft_app = app_name
-                            st.rerun()
+                                # Clean up temp file after a delay (can't delete immediately due to Streamlit's async nature)
+                                # Streamlit will handle cleanup on rerun
+                                try:
+                                    os.unlink(tmp.name)
+                                except:
+                                    pass  # File might still be in use
+
+                                if clicked:
+                                    # Use a safer approach - clear the session state first
+                                    if "draft_basic" in st.session_state:
+                                        st.session_state.pop("draft_basic")
+                                    if "draft_extended" in st.session_state:
+                                        st.session_state.pop("draft_extended")
+                                    if "draft_script" in st.session_state:
+                                        st.session_state.pop("draft_script")
+                                    if "draft_media" in st.session_state:
+                                        st.session_state.pop("draft_media")
+                                    if "draft_mouse" in st.session_state:
+                                        st.session_state.pop("draft_mouse")
+
+                                    st.session_state.draft_app = app_name
+                                    st.rerun()
+                        else:
+                            # Fallback to regular button if no icon
+                            if st.button(
+                                app_name,
+                                key=f"app_select_{app_name}",
+                                use_container_width=True,
+                            ):
+                                # Use a safer approach - clear the session state first
+                                if "draft_basic" in st.session_state:
+                                    st.session_state.pop("draft_basic")
+                                if "draft_extended" in st.session_state:
+                                    st.session_state.pop("draft_extended")
+                                if "draft_script" in st.session_state:
+                                    st.session_state.pop("draft_script")
+                                if "draft_media" in st.session_state:
+                                    st.session_state.pop("draft_media")
+                                if "draft_mouse" in st.session_state:
+                                    st.session_state.pop("draft_mouse")
+
+                                st.session_state.draft_app = app_name
+                                st.rerun()
             else:
                 st.warning("No applications found.")
 
