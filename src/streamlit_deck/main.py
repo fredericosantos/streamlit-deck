@@ -109,65 +109,7 @@ if st.session_state.edit_mode:
                 st.rerun()
 
 # --- Editor Panel (Sidebar) ---
-if st.session_state.edit_mode and st.session_state.selected_button:
-    st.sidebar.header("Edit Button")
-    r, c = st.session_state.selected_button
-    btn_id = f"{r}-{c}"
-    btn_data = layout["buttons"].get(btn_id, {})
-
-    with st.sidebar.form("edit_button"):
-        st.write(f"Editing Button at Row {r + 1}, Col {c + 1}")
-
-        new_label = st.text_input("Label", value=btn_data.get("label", ""))
-
-        action_type = st.selectbox(
-            "Action Type",
-            ["hotkey", "script"],
-            index=0 if btn_data.get("type") == "hotkey" else 1,
-        )
-
-        payload = ""
-        if action_type == "hotkey":
-            payload = st.text_input(
-                "Hotkey (e.g. ctrl+c, volumedown)", value=btn_data.get("action", "")
-            )
-            st.caption(
-                "Common keys: ctrl, shift, alt, command, f1-f12, enter, space, playpause, volumemute"
-            )
-        else:
-            scripts = config.list_scripts()
-            current_script = btn_data.get("action", "")
-            idx = scripts.index(current_script) if current_script in scripts else 0
-            if scripts:
-                payload = st.selectbox("Select Script", scripts, index=idx)
-            else:
-                st.warning("No scripts found in scripts/ directory")
-                payload = ""
-
-        # Color (Hex) - Optional
-        # color = st.color_picker("Color", value=btn_data.get("color", "#F0F2F6"))
-
-        if st.form_submit_button("Save"):
-            # Update layout data
-            if btn_id not in layout["buttons"]:
-                layout["buttons"][btn_id] = {}
-
-            layout["buttons"][btn_id] = {
-                "row": r,
-                "col": c,
-                "label": new_label,
-                "type": action_type,
-                "action": payload,
-            }
-            config.save_layout(st.session_state.current_layout_name, layout)
-            st.toast("Button Saved!")
-            st.rerun()
-
-    if st.sidebar.button("Clear Button", type="primary"):
-        if btn_id in layout["buttons"]:
-            del layout["buttons"][btn_id]
-            config.save_layout(st.session_state.current_layout_name, layout)
-            st.rerun()
+# Moved to below grid in Edit Mode
 
 # --- Main Grid ---
 rows = layout.get("rows", 2)
@@ -191,9 +133,20 @@ with st.container(border=True):
 
             with columns[c]:
                 if label:
+                    # Determine button type (primary if selected in edit mode)
+                    btn_type = "secondary"
+                    if (
+                        st.session_state.edit_mode
+                        and st.session_state.selected_button == (r, c)
+                    ):
+                        btn_type = "primary"
+
                     # Unique key is crucial
                     clicked = st.button(
-                        label, key=f"btn_{r}_{c}", use_container_width=True
+                        label,
+                        key=f"btn_{r}_{c}",
+                        use_container_width=True,
+                        type=btn_type,
                     )
 
                     if clicked:
@@ -215,6 +168,174 @@ with st.container(border=True):
                     # If in edit mode, we want this to be clickable to add a button.
                     # But st.button with empty label is weird.
                     # The logic above sets label="➕" in edit mode, so we only fall here in Run Mode.
+
+# --- Editor Interface (Below Grid) ---
+if st.session_state.edit_mode and st.session_state.selected_button:
+    import string
+
+    r, c = st.session_state.selected_button
+    btn_id = f"{r}-{c}"
+    btn_data = layout["buttons"].get(btn_id, {})
+
+    st.divider()
+    st.subheader(f"Editing Button: Row {r + 1}, Col {c + 1}")
+
+    with st.container(border=True):
+        # Manual Overrides
+        c1, c2 = st.columns(2)
+        with c1:
+            current_label = st.text_input(
+                "Button Label", value=btn_data.get("label", "")
+            )
+        with c2:
+            current_action = st.text_input(
+                "Action Payload (Auto-filled by selections)",
+                value=btn_data.get("action", ""),
+                help="Manually edit this if needed. Selections below will overwrite this.",
+            )
+
+        # --- Selection Expanders ---
+
+        # 1. Basic Characters
+        with st.expander("Basic Characters"):
+            basic_chars = list(string.ascii_lowercase + string.digits)
+            selected_basic = st.pills(
+                "Select Characters", basic_chars, selection_mode="multi"
+            )
+
+        # 2. Extended Characters
+        with st.expander("Extended Characters"):
+            extended_chars = [
+                "ctrl",
+                "shift",
+                "alt",
+                "cmd",
+                "enter",
+                "esc",
+                "tab",
+                "space",
+                "backspace",
+                "delete",
+                "up",
+                "down",
+                "left",
+                "right",
+                "capslock",
+            ] + [f"f{i}" for i in range(1, 13)]
+            selected_extended = st.pills(
+                "Select Special Keys", extended_chars, selection_mode="multi"
+            )
+
+        # 3. Functions (Scripts)
+        with st.expander("Functions (Scripts)"):
+            scripts = config.list_scripts()
+            if scripts:
+                selected_script = st.pills(
+                    "Select Script", scripts, selection_mode="single"
+                )
+            else:
+                st.warning("No scripts found in scripts/ directory")
+                selected_script = None
+
+        # 4. Media and Audio Control
+        with st.expander("Media & Audio"):
+            media_keys = [
+                "playpause",
+                "volumemute",
+                "volumeup",
+                "volumedown",
+                "nexttrack",
+                "prevtrack",
+            ]
+            selected_media = st.pills(
+                "Media Controls", media_keys, selection_mode="multi"
+            )
+
+        # 5. Mouse
+        with st.expander("Mouse"):
+            mouse_actions = [
+                "left_click",
+                "right_click",
+                "middle_click",
+                "double_left_click",
+            ]
+            selected_mouse = st.pills(
+                "Mouse Actions", mouse_actions, selection_mode="single"
+            )
+
+        # --- Save Logic ---
+        st.write("")
+        col_save, col_clear = st.columns([1, 6])
+
+        with col_save:
+            if st.button("Save", type="primary"):
+                # Determine Action Type and Payload
+                final_type = "hotkey"
+                final_payload = current_action
+
+                # Priority: Script > Mouse > Keys (Basic/Extended/Media)
+                # If pills were selected, they override the manual input
+
+                if selected_script:
+                    final_type = "script"
+                    final_payload = selected_script
+                    if not current_label:
+                        current_label = selected_script
+
+                elif selected_mouse:
+                    final_type = "mouse"
+                    final_payload = selected_mouse
+                    if not current_label:
+                        current_label = selected_mouse.replace("_", " ").title()
+
+                else:
+                    # Combine all key selections
+                    all_keys = []
+                    # Add modifiers first for convention
+                    modifiers = ["ctrl", "shift", "alt", "cmd"]
+
+                    # Filter modifiers from extended
+                    selected_mods = [
+                        k for k in (selected_extended or []) if k in modifiers
+                    ]
+                    other_extended = [
+                        k for k in (selected_extended or []) if k not in modifiers
+                    ]
+
+                    all_keys.extend(selected_mods)
+                    if selected_basic:
+                        all_keys.extend(selected_basic)
+                    all_keys.extend(other_extended)
+                    if selected_media:
+                        all_keys.extend(selected_media)
+
+                    if all_keys:
+                        final_type = "hotkey"
+                        final_payload = "+".join(all_keys)
+                        if not current_label:
+                            current_label = final_payload
+
+                # Save
+                if btn_id not in layout["buttons"]:
+                    layout["buttons"][btn_id] = {}
+
+                layout["buttons"][btn_id] = {
+                    "row": r,
+                    "col": c,
+                    "label": current_label,
+                    "type": final_type,
+                    "action": final_payload,
+                }
+                config.save_layout(st.session_state.current_layout_name, layout)
+                st.toast("Button Saved!")
+                st.rerun()
+
+        with col_clear:
+            if st.button("Clear Button"):
+                if btn_id in layout["buttons"]:
+                    del layout["buttons"][btn_id]
+                    config.save_layout(st.session_state.current_layout_name, layout)
+                    st.rerun()
 
 # --- Footer / Info ---
 if st.session_state.edit_mode:

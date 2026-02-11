@@ -1,9 +1,11 @@
 import subprocess
 import os
-from pynput.keyboard import Key, Controller, KeyCode
+from pynput.keyboard import Key, Controller as KeyboardController, KeyCode
+from pynput.mouse import Button, Controller as MouseController
 from typing import Union, List
 
-keyboard = Controller()
+keyboard = KeyboardController()
+mouse = MouseController()
 
 SCRIPTS_DIR = "scripts"
 
@@ -64,6 +66,13 @@ KEY_MAP = {
     "playpause": Key.media_play_pause,
     "nexttrack": Key.media_next,
     "prevtrack": Key.media_previous,
+}
+
+MOUSE_MAP = {
+    "left_click": Button.left,
+    "right_click": Button.right,
+    "middle_click": Button.middle,
+    "double_left_click": "double_left",
 }
 
 
@@ -146,6 +155,25 @@ def execute_script(script_name: str) -> str:
         return f"Error running script: {e}"
 
 
+def execute_mouse(action: str) -> str:
+    """
+    Executes a mouse action.
+    """
+    try:
+        if action == "double_left_click":
+            mouse.click(Button.left, 2)
+            return "Executed double left click"
+
+        if action in MOUSE_MAP:
+            btn = MOUSE_MAP[action]
+            mouse.click(btn)
+            return f"Executed mouse click: {action}"
+
+        return f"Unknown mouse action: {action}"
+    except Exception as e:
+        return f"Error executing mouse action: {e}"
+
+
 def execute_action(action_type: str, payload: str) -> str:
     """
     Dispatcher for actions.
@@ -154,5 +182,7 @@ def execute_action(action_type: str, payload: str) -> str:
         return execute_hotkey(payload)
     elif action_type == "script":
         return execute_script(payload)
+    elif action_type == "mouse":
+        return execute_mouse(payload)
     else:
         return f"Unknown action type: {action_type}"
