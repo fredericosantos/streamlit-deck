@@ -10,21 +10,31 @@ A customizable Stream Deck implementation running on your local machine, control
 - **Multiple Profiles**: Switch between different button layouts.
 - **Web Interface**: Accessible from any device on your local network/tailnet.
 
-## Quick Start (via `uvx`)
+## Installation (Recommended)
 
-You can run the application directly from the repository using `uvx` (part of the `uv` toolchain). This is the recommended way to try it out without cloning manually.
+To install `streamlit-deck` as a permanent tool on your system using `uv`:
+
+```bash
+uv tool install git+https://github.com/fredericosantos/streamlit-deck
+```
+
+Once installed, you can run it from anywhere in your terminal:
+
+```bash
+streamlit-deck
+```
+
+The application will create `layouts/` and `scripts/` directories in your current working directory to store your configurations.
+
+## Quick Try (Ephemeral)
+
+If you just want to try it out without installing it globally, use `uvx`:
 
 ```bash
 uvx --from git+https://github.com/fredericosantos/streamlit-deck streamlit-deck
 ```
 
-This command will:
-1.  Download the application.
-2.  Install dependencies in an isolated environment.
-3.  Launch the Streamlit server.
-4.  Create `layouts/` and `scripts/` directories in your current folder for your configuration.
-
-## Installation (Manual)
+## Development
 
 1.  **Clone & Install**:
     ```bash
@@ -54,4 +64,4 @@ This command will:
 ## Dependencies
 
 -   `streamlit`: UI
--   `pyautogui`: Keyboard/Mouse control
+-   `pynput`: Keyboard/Mouse control
