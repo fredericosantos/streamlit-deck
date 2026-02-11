@@ -95,4 +95,10 @@ The project uses `uv` for dependency management and execution.
 2.  **Plan:** Propose changes before executing.
 3.  **Implement:** Edit files in `src/`.
 4.  **Verify:** Run the app to ensure UI renders correctly and actions trigger.
-5.  **Commit:** Use descriptive commit messages.
+5.  **Commit:** Follow [Conventional Commits](https://www.conventionalcommits.org/) structure.
+    -   `feat:` New feature.
+    -   `fix:` Bug fix.
+    -   `refactor:` Code change that neither fixes a bug nor adds a feature.
+    -   `docs:` Documentation only changes.
+    -   `style:` Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc).
+    -   `chore:` Build process or auxiliary tool changes.
