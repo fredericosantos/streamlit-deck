@@ -661,40 +661,50 @@ if st.session_state.edit_mode and st.session_state.selected_button:
         # 4. Applications (New)
         with st.expander("Applications"):
             if APPS_LIST:
-                # Create a grid for app selection with icons and buttons
-                for i, app_name in enumerate(APPS_LIST):
-                    app_data = APPS_DICT[app_name]
+                # Create a grid layout for app selection (3 columns like the main grid)
+                num_cols = 3
+                app_rows = (
+                    len(APPS_LIST) + num_cols - 1
+                ) // num_cols  # Ceiling division
 
-                    # Create a row for each app with icon and button columns
-                    with st.container():
-                        app_cols = st.columns([1, 4], gap="small")
+                for app_row in range(app_rows):
+                    app_cols = st.columns(num_cols)
+                    for col_idx in range(num_cols):
+                        app_idx = app_row * num_cols + col_idx
+                        if app_idx < len(APPS_LIST):
+                            app_name = APPS_LIST[app_idx]
+                            app_data = APPS_DICT[app_name]
 
-                        with app_cols[0]:
-                            # Display icon in first column
-                            icon_bytes = app_data.get("icon_bytes")
-                            display_icon_in_column(icon_bytes, size=48)
+                            with app_cols[col_idx]:
+                                # Create mini-row within each grid cell: icon + button label
+                                cell_cols = st.columns([1, 3], gap="small")
 
-                        with app_cols[1]:
-                            app_btn_key = f"app_select_{app_name}"
-                            if st.button(
-                                app_name,
-                                key=app_btn_key,
-                                use_container_width=True,
-                            ):
-                                # Use a safer approach - clear the session state first
-                                if "draft_basic" in st.session_state:
-                                    st.session_state.pop("draft_basic")
-                                if "draft_extended" in st.session_state:
-                                    st.session_state.pop("draft_extended")
-                                if "draft_script" in st.session_state:
-                                    st.session_state.pop("draft_script")
-                                if "draft_media" in st.session_state:
-                                    st.session_state.pop("draft_media")
-                                if "draft_mouse" in st.session_state:
-                                    st.session_state.pop("draft_mouse")
+                                with cell_cols[0]:
+                                    # Display icon in first mini-column
+                                    icon_bytes = app_data.get("icon_bytes")
+                                    display_icon_in_column(icon_bytes, size=48)
 
-                                st.session_state.draft_app = app_name
-                                st.rerun()
+                                with cell_cols[1]:
+                                    app_btn_key = f"app_select_{app_name}"
+                                    if st.button(
+                                        app_name,
+                                        key=app_btn_key,
+                                        use_container_width=True,
+                                    ):
+                                        # Use a safer approach - clear the session state first
+                                        if "draft_basic" in st.session_state:
+                                            st.session_state.pop("draft_basic")
+                                        if "draft_extended" in st.session_state:
+                                            st.session_state.pop("draft_extended")
+                                        if "draft_script" in st.session_state:
+                                            st.session_state.pop("draft_script")
+                                        if "draft_media" in st.session_state:
+                                            st.session_state.pop("draft_media")
+                                        if "draft_mouse" in st.session_state:
+                                            st.session_state.pop("draft_mouse")
+
+                                        st.session_state.draft_app = app_name
+                                        st.rerun()
             else:
                 st.warning("No applications found.")
 
