@@ -51,30 +51,42 @@ html_button_component = components.component(
     """,
     js="""
     export default function(args, sendData) {
-        const button = document.getElementById('button');
-        const iconContainer = document.getElementById('icon-container');
-        const label = document.getElementById('label');
+        // Wait for DOM to be ready
+        const initComponent = () => {
+            const button = document.getElementById('button');
+            const iconContainer = document.getElementById('icon-container');
+            const label = document.getElementById('label');
 
-        // Set initial properties
-        if (args.icon_html) {
-            iconContainer.innerHTML = args.icon_html;
-            iconContainer.style.display = 'block';
-        }
-        label.textContent = args.label || '';
+            if (!button || !iconContainer || !label) {
+                // If elements not found, try again later
+                setTimeout(initComponent, 10);
+                return;
+            }
 
-        if (args.button_type === 'primary') {
-            button.classList.add('primary');
-        }
+            // Set initial properties
+            if (args.icon_html) {
+                iconContainer.innerHTML = args.icon_html;
+                iconContainer.style.display = 'block';
+            }
+            label.textContent = args.label || '';
 
-        if (args.height) {
-            button.style.height = args.height;
-        }
+            if (args.button_type === 'primary') {
+                button.classList.add('primary');
+            }
 
-        // Handle click
-        button.onclick = () => {
-            // Send click event back to Streamlit
-            sendData({clicked: true});
+            if (args.height) {
+                button.style.height = args.height;
+            }
+
+            // Handle click
+            button.onclick = () => {
+                // Send click event back to Streamlit
+                sendData({clicked: true});
+            };
         };
+
+        // Initialize component
+        initComponent();
     }
     """,
 )
@@ -314,25 +326,30 @@ if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
         html="<div id='shortcut-handler'></div>",
         js=f"""
         export default function(args, sendData) {{
-            document.addEventListener('keydown', function(event) {{
-                // Only handle single digit keys without modifiers
-                if (event.key >= '1' && event.key <= '9' && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {{
-                    const num = parseInt(event.key);
-                    const maxButtons = {rows * cols};
-                    if (num <= maxButtons) {{
-                        // Calculate row and col from number (1-based to 0-based)
-                        const col = {cols};
-                        const r = Math.floor((num - 1) / col);
-                        const c = (num - 1) % col;
-                        const btnId = `btn_${{r}}_${{c}}`;
-                        const button = parent.document.getElementById(btnId);
-                        if (button) {{
-                            event.preventDefault();
-                            button.click();
+            const initShortcuts = () => {{
+                document.addEventListener('keydown', function(event) {{
+                    // Only handle single digit keys without modifiers
+                    if (event.key >= '1' && event.key <= '9' && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {{
+                        const num = parseInt(event.key);
+                        const maxButtons = {rows * cols};
+                        if (num <= maxButtons) {{
+                            // Calculate row and col from number (1-based to 0-based)
+                            const col = {cols};
+                            const r = Math.floor((num - 1) / col);
+                            const c = (num - 1) % col;
+                            const btnId = `btn_${{r}}_${{c}}`;
+                            const button = parent.document.getElementById(btnId);
+                            if (button) {{
+                                event.preventDefault();
+                                button.click();
+                            }}
                         }}
                     }}
-                }}
-            }});
+                }});
+            }};
+
+            // Initialize shortcuts
+            initShortcuts();
         }}
         """,
     )
