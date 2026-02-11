@@ -4,13 +4,21 @@ import base64
 import streamlit.components.v2 as components
 
 
-# Utility function to convert PNG bytes to base64 data URI for HTML
-def png_bytes_to_base64_data_uri(png_bytes: bytes) -> str:
-    """Convert PNG bytes to base64 data URI for HTML img src."""
-    if not png_bytes:
-        return ""
-    b64_encoded = base64.b64encode(png_bytes).decode("utf-8")
-    return f"data:image/png;base64,{b64_encoded}"
+# Utility functions for icon handling
+def is_svg_data(data: bytes) -> bool:
+    """Check if data is SVG (starts with XML or SVG tag)."""
+    return data.startswith(b"<?xml") or data.startswith(b"<svg")
+
+
+def get_icon_html_source(icon_bytes: bytes) -> str:
+    """Get HTML source for icon - SVG inline or PNG base64."""
+    if is_svg_data(icon_bytes):
+        # SVG can be embedded directly
+        return icon_bytes.decode("utf-8", errors="ignore")
+    else:
+        # PNG needs base64 encoding
+        b64_encoded = base64.b64encode(icon_bytes).decode("utf-8")
+        return f"data:image/png;base64,{b64_encoded}"
 
 
 # HTML button component with embedded image using v2
@@ -18,7 +26,7 @@ html_button_component = components.component(
     name="html_button_with_icon",
     html="""
     <button id="button" style="width: 100%; height: 100px; font-size: 24px; font-weight: bold; border: 1px solid #ccc; border-radius: 4px; padding: 0.5em 1em; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background-color: #f0f0f0; color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-        <img id="icon" src="" alt="icon" style="width: 48px; height: 48px; flex-shrink: 0; display: none;">
+        <div id="icon-container" style="width: 48px; height: 48px; flex-shrink: 0; display: none;"></div>
         <span id="label"></span>
     </button>
     """,
@@ -36,16 +44,20 @@ html_button_component = components.component(
         background-color: #e63939 !important;
         border-color: #e63939 !important;
     }
+    #icon-container svg {
+        width: 100%;
+        height: 100%;
+    }
     """,
     js="""
     const button = document.getElementById('button');
-    const icon = document.getElementById('icon');
+    const iconContainer = document.getElementById('icon-container');
     const label = document.getElementById('label');
 
     // Set initial properties
-    if (data.icon_data_uri) {
-        icon.src = data.icon_data_uri;
-        icon.style.display = 'block';
+    if (data.icon_html) {
+        iconContainer.innerHTML = data.icon_html;
+        iconContainer.style.display = 'block';
     }
     label.textContent = data.label || '';
 
@@ -69,7 +81,7 @@ html_button_component = components.component(
 def html_button_with_icon(
     key: str,
     label: str,
-    icon_data_uri: str = "",
+    icon_bytes: bytes = None,
     button_type: str = "secondary",
     height: str = "100px",
 ) -> bool:
@@ -77,12 +89,16 @@ def html_button_with_icon(
     Create an HTML button with embedded icon using streamlit v2 components.
     Returns True if clicked.
     """
+    icon_html = ""
+    if icon_bytes:
+        icon_html = get_icon_html_source(icon_bytes)
+
     # Call the component renderer
     result = html_button_component(
         key=key,
         data={
             "label": label,
-            "icon_data_uri": icon_data_uri,
+            "icon_html": icon_html,
             "button_type": button_type,
             "height": height,
         },
@@ -241,7 +257,7 @@ with st.container(border=True):
                         btn_display_type = "primary"
 
                 # Prepare icon for app buttons
-                icon_data_uri = ""
+                icon_bytes = None
                 if btn_type == "app" and action:
                     app_name = None
                     # Find app name from command using APPS_REVERSE
@@ -251,9 +267,7 @@ with st.container(border=True):
                             break
 
                     if app_name and APPS_DICT[app_name].get("icon_bytes"):
-                        icon_data_uri = png_bytes_to_base64_data_uri(
-                            APPS_DICT[app_name]["icon_bytes"]
-                        )
+                        icon_bytes = APPS_DICT[app_name]["icon_bytes"]
 
                 # Unique key is crucial
                 # Add shortcut for quick access (numbers for first 9 buttons)
@@ -269,7 +283,7 @@ with st.container(border=True):
                 clicked = html_button_with_icon(
                     key=btn_key,
                     label=label,
-                    icon_data_uri=icon_data_uri,
+                    icon_bytes=icon_bytes,
                     button_type=btn_display_type,
                 )
 
@@ -719,33 +733,15 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                         app_data = APPS_DICT[app_name]
 
                         # Create button with embedded image
-                        icon_data_uri = ""
-                        if app_data.get("icon_bytes"):
-                            icon_data_uri = png_bytes_to_base64_data_uri(
-                                app_data["icon_bytes"]
-                            )
+                        icon_bytes = app_data.get("icon_bytes")
 
                         app_btn_key = f"app_select_{app_name}"
                         if html_button_with_icon(
                             key=app_btn_key,
                             label=app_name,
-                            icon_data_uri=icon_data_uri,
+                            icon_bytes=icon_bytes,
                             height="80px",
                         ):
-                            # Use a safer approach - clear the session state first
-                            if "draft_basic" in st.session_state:
-                                st.session_state.pop("draft_basic")
-                            if "draft_extended" in st.session_state:
-                                st.session_state.pop("draft_extended")
-                            if "draft_script" in st.session_state:
-                                st.session_state.pop("draft_script")
-                            if "draft_media" in st.session_state:
-                                st.session_state.pop("draft_media")
-                            if "draft_mouse" in st.session_state:
-                                st.session_state.pop("draft_mouse")
-
-                            st.session_state.draft_app = app_name
-                            st.rerun()
                             # Use a safer approach - clear the session state first
                             if "draft_basic" in st.session_state:
                                 st.session_state.pop("draft_basic")

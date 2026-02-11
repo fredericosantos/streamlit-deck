@@ -11,12 +11,28 @@ from typing import Dict, Optional
 def extract_macos_icon(app_path: str, size: tuple = (64, 64)) -> Optional[bytes]:
     """
     Extracts icon from a macOS .app bundle and returns it as bytes.
+    Prefers SVG if available, falls back to PNG from .icns
     """
-    icon_path = os.path.join(app_path, "Contents", "Resources", "AppIcon.icns")
+    resources_dir = os.path.join(app_path, "Contents", "Resources")
+
+    if not os.path.exists(resources_dir):
+        return None
+
+    # First, try to find SVG files
+    for file in os.listdir(resources_dir):
+        if file.lower().endswith(".svg"):
+            svg_path = os.path.join(resources_dir, file)
+            try:
+                with open(svg_path, "rb") as f:
+                    return f.read()
+            except Exception:
+                continue
+
+    # Fall back to .icns extraction
+    icon_path = os.path.join(resources_dir, "AppIcon.icns")
 
     if not os.path.exists(icon_path):
         # Try alternative icon names
-        resources_dir = os.path.join(app_path, "Contents", "Resources")
         for file in os.listdir(resources_dir):
             if file.endswith(".icns"):
                 icon_path = os.path.join(resources_dir, file)
@@ -36,7 +52,6 @@ def extract_macos_icon(app_path: str, size: tuple = (64, 64)) -> Optional[bytes]
             img.save(buffer, format="PNG")
             return buffer.getvalue()
     except Exception:
-        # print(f"Error extracting icon from {app_path}: {e}")
         return None
 
 
@@ -47,15 +62,30 @@ def get_cached_icon(app_path: str) -> Optional[bytes]:
 
     # Create cache key from app path
     cache_key = hashlib.md5(app_path.encode()).hexdigest()
-    cache_file = os.path.join(cache_dir, f"{cache_key}.png")
 
-    if os.path.exists(cache_file):
-        with open(cache_file, "rb") as f:
+    # Check for both SVG and PNG cache files
+    svg_cache_file = os.path.join(cache_dir, f"{cache_key}.svg")
+    png_cache_file = os.path.join(cache_dir, f"{cache_key}.png")
+
+    # Prefer SVG cache
+    if os.path.exists(svg_cache_file):
+        with open(svg_cache_file, "rb") as f:
+            return f.read()
+
+    # Fall back to PNG cache
+    if os.path.exists(png_cache_file):
+        with open(png_cache_file, "rb") as f:
             return f.read()
 
     # Extract and cache
     icon_bytes = extract_macos_icon(app_path)
     if icon_bytes:
+        # Determine if it's SVG (starts with <?xml or <svg) or PNG
+        if icon_bytes.startswith(b"<?xml") or icon_bytes.startswith(b"<svg"):
+            cache_file = svg_cache_file
+        else:
+            cache_file = png_cache_file
+
         with open(cache_file, "wb") as f:
             f.write(icon_bytes)
 
@@ -82,6 +112,7 @@ def get_installed_apps() -> Dict[str, Dict[str, str]]:
                 try:
                     name = None
                     exec_cmd = None
+                    icon_path = None
                     # Read only first few lines usually sufficient, but we parse full file carefully
                     with open(file, "r", errors="ignore") as f:
                         for line in f:
@@ -90,6 +121,8 @@ def get_installed_apps() -> Dict[str, Dict[str, str]]:
                                 name = line.split("=", 1)[1]
                             elif line.startswith("Exec=") and not exec_cmd:
                                 exec_cmd = line.split("=", 1)[1]
+                            elif line.startswith("Icon=") and not icon_path:
+                                icon_path = line.split("=", 1)[1]
 
                             if name and exec_cmd:
                                 break
@@ -102,7 +135,21 @@ def get_installed_apps() -> Dict[str, Dict[str, str]]:
                             if not part.startswith("%"):
                                 clean_cmd.append(part)
 
-                        apps[name] = clean_cmd
+                        # Try to load icon if specified
+                        icon_bytes = None
+                        if icon_path:
+                            # Check for SVG first, then PNG
+                            for ext in [".svg", ".png", ""]:
+                                candidate_path = icon_path + ext if ext else icon_path
+                                if os.path.exists(candidate_path):
+                                    try:
+                                        with open(candidate_path, "rb") as f:
+                                            icon_bytes = f.read()
+                                        break
+                                    except Exception:
+                                        continue
+
+                        apps[name] = {"command": clean_cmd, "icon_bytes": icon_bytes}
                 except Exception:
                     continue
 
