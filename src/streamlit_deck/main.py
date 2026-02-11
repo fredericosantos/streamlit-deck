@@ -200,7 +200,7 @@ if st.session_state.edit_mode:
                 f"<div style='text-align: center; font-size: 20px; font-weight: bold;'>{rows}</div>",
                 unsafe_allow_html=True,
             )
-            if st.button("➕", key="inc_row", shortcut="+"):
+            if st.button("➕", key="inc_row"):
                 layout["rows"] = min(8, rows + 1)
                 config.save_layout(st.session_state.current_layout_name, layout)
                 st.rerun()
@@ -215,7 +215,7 @@ if st.session_state.edit_mode:
                 f"<div style='text-align: center; font-size: 20px; font-weight: bold;'>{cols}</div>",
                 unsafe_allow_html=True,
             )
-            if st.button("➕", key="inc_col", shortcut="+"):
+            if st.button("➕", key="inc_col"):
                 layout["cols"] = min(8, cols + 1)
                 config.save_layout(st.session_state.current_layout_name, layout)
                 st.rerun()
@@ -256,48 +256,48 @@ with st.container(border=True):
                     ):
                         btn_display_type = "primary"
 
-                # Prepare icon for app buttons
-                icon_bytes = None
-                if btn_type == "app" and action:
-                    app_name = None
-                    # Find app name from command using APPS_REVERSE
-                    for name, data in APPS_DICT.items():
-                        if isinstance(data, dict) and data.get("command") == action:
-                            app_name = name
-                            break
+                    # Prepare icon for app buttons
+                    icon_bytes = None
+                    if btn_type == "app" and action:
+                        app_name = None
+                        # Find app name from command using APPS_REVERSE
+                        for name, data in APPS_DICT.items():
+                            if isinstance(data, dict) and data.get("command") == action:
+                                app_name = name
+                                break
 
-                    if app_name and APPS_DICT[app_name].get("icon_bytes"):
-                        icon_bytes = APPS_DICT[app_name]["icon_bytes"]
+                        if app_name and APPS_DICT[app_name].get("icon_bytes"):
+                            icon_bytes = APPS_DICT[app_name]["icon_bytes"]
 
-                # Unique key is crucial
-                # Add shortcut for quick access (numbers for first 9 buttons)
-                shortcut = None
-                if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
-                    # Map position to number (1-9) for small grids
-                    shortcut_num = r * cols + c + 1
-                    if shortcut_num <= 9:
-                        shortcut = str(shortcut_num)
+                    # Unique key is crucial
+                    # Add shortcut for quick access (numbers for first 9 buttons)
+                    shortcut = None
+                    if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
+                        # Map position to number (1-9) for small grids
+                        shortcut_num = r * cols + c + 1
+                        if shortcut_num <= 9:
+                            shortcut = str(shortcut_num)
 
-                # Use HTML button component with embedded icon
-                btn_key = f"btn_{r}_{c}"
-                clicked = html_button_with_icon(
-                    key=btn_key,
-                    label=label,
-                    icon_bytes=icon_bytes,
-                    button_type=btn_display_type,
-                )
+                    # Use HTML button component with embedded icon
+                    btn_key = f"btn_{r}_{c}"
+                    clicked = html_button_with_icon(
+                        key=btn_key,
+                        label=label,
+                        icon_bytes=icon_bytes,
+                        button_type=btn_display_type,
+                    )
 
-                if clicked:
-                    if st.session_state.edit_mode:
-                        st.session_state.selected_button = (r, c)
-                        st.rerun()
-                    else:
-                        # Execute Action
-                        if btn_data:
-                            msg = executor.execute_action(
-                                btn_data.get("type"), btn_data.get("action")
-                            )
-                            st.toast(msg)
+                    if clicked:
+                        if st.session_state.edit_mode:
+                            st.session_state.selected_button = (r, c)
+                            st.rerun()
+                        else:
+                            # Execute Action
+                            if btn_data:
+                                msg = executor.execute_action(
+                                    btn_data.get("type"), btn_data.get("action")
+                                )
+                                st.toast(msg)
                 else:
                     # Render empty placeholder to maintain grid alignment
                     st.markdown(
