@@ -8,6 +8,6 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "pyautogui>=0.9.54",
+    "pynput>=1.8.1",
     "streamlit>=1.54.0",
 ]

@@ -1,30 +1,121 @@
-import pyautogui
 import subprocess
 import os
-import shlex
-from typing import Optional
+from pynput.keyboard import Key, Controller, KeyCode
+from typing import Union, List
 
-# Disable fail-safe for this application context if needed,
-# but generally good to keep.
-# pyautogui.FAILSAFE = True
+keyboard = Controller()
 
 SCRIPTS_DIR = "scripts"
+
+# Map string names to pynput Keys
+KEY_MAP = {
+    # Modifiers
+    "ctrl": Key.ctrl,
+    "shift": Key.shift,
+    "alt": Key.alt,
+    "opt": Key.alt,  # Mac alias
+    "cmd": Key.cmd,
+    "command": Key.cmd,  # Mac alias
+    "super": Key.cmd,  # Linux/Windows key often mapped to cmd in pynput on Mac
+    "win": Key.cmd,
+    # Function Keys
+    "f1": Key.f1,
+    "f2": Key.f2,
+    "f3": Key.f3,
+    "f4": Key.f4,
+    "f5": Key.f5,
+    "f6": Key.f6,
+    "f7": Key.f7,
+    "f8": Key.f8,
+    "f9": Key.f9,
+    "f10": Key.f10,
+    "f11": Key.f11,
+    "f12": Key.f12,
+    "f13": Key.f13,
+    "f14": Key.f14,
+    "f15": Key.f15,
+    "f16": Key.f16,
+    "f17": Key.f17,
+    "f18": Key.f18,
+    "f19": Key.f19,
+    "f20": Key.f20,
+    # Navigation / Editing
+    "enter": Key.enter,
+    "return": Key.enter,
+    "esc": Key.esc,
+    "escape": Key.esc,
+    "space": Key.space,
+    "tab": Key.tab,
+    "backspace": Key.backspace,
+    "delete": Key.delete,
+    "up": Key.up,
+    "down": Key.down,
+    "left": Key.left,
+    "right": Key.right,
+    "home": Key.home,
+    "end": Key.end,
+    "pageup": Key.page_up,
+    "pagedown": Key.page_down,
+    "capslock": Key.caps_lock,
+    # Media Keys
+    "volumemute": Key.media_volume_mute,
+    "volumeup": Key.media_volume_up,
+    "volumedown": Key.media_volume_down,
+    "playpause": Key.media_play_pause,
+    "nexttrack": Key.media_next,
+    "prevtrack": Key.media_previous,
+}
+
+
+def get_key_object(key_name: str) -> Union[Key, KeyCode]:
+    """
+    Convert a string key name to a pynput Key or KeyCode object.
+    """
+    key_name = key_name.lower().strip()
+
+    # Check known special keys
+    if key_name in KEY_MAP:
+        return KEY_MAP[key_name]
+
+    # Handle single characters (e.g. 'a', '1', '.')
+    if len(key_name) == 1:
+        return KeyCode.from_char(key_name)
+
+    # Fallback: try to just use the character if it's not a known special key
+    # This might fail for unknown long strings, but is a reasonable default
+    try:
+        return KeyCode.from_char(key_name[0])
+    except:
+        return None
 
 
 def execute_hotkey(hotkey_string: str) -> str:
     """
-    Executes a keyboard shortcut.
+    Executes a keyboard shortcut using pynput.
     Format example: "ctrl+c", "command+shift+4", "volumemute"
     """
     if not hotkey_string:
         return "No hotkey defined"
 
     try:
-        keys = hotkey_string.lower().split("+")
-        # Clean up whitespace
-        keys = [k.strip() for k in keys]
+        parts = hotkey_string.split("+")
+        keys_to_press = []
 
-        pyautogui.hotkey(*keys)
+        for part in parts:
+            key_obj = get_key_object(part)
+            if key_obj:
+                keys_to_press.append(key_obj)
+            else:
+                return f"Unknown key: {part}"
+
+        # Press keys in order
+        for k in keys_to_press:
+            keyboard.press(k)
+
+        # Release keys in reverse order
+        for k in reversed(keys_to_press):
+            keyboard.release(k)
+
         return f"Executed hotkey: {hotkey_string}"
     except Exception as e:
         return f"Error executing hotkey: {e}"
@@ -45,13 +136,10 @@ def execute_script(script_name: str) -> str:
     try:
         # Check if executable
         if not os.access(script_path, os.X_OK):
-            # Try to make it executable? Or just warn?
-            # Let's try to run it with 'sh' if it ends in .sh, otherwise generic execution
+            # On Linux/Mac, we can try to chmod it, but usually user should do this.
             pass
 
-        # Run the script
-        # Using Popen to run in background/detached might be better so UI doesn't hang?
-        # But for 'Stream Deck' style, we usually want fire-and-forget.
+        # Run the script in detached mode / background
         subprocess.Popen([script_path], cwd=os.getcwd())
         return f"Started script: {script_name}"
     except Exception as e:
