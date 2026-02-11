@@ -91,7 +91,7 @@ The project uses `uv` for dependency management and execution.
 - **Theme:** The theme is configured in `src/streamlit_deck/.streamlit/config.toml`. Do not hardcode colors in Python if possible; rely on the theme config.
 
 ## 5. Development Workflow
-1.  **Analyze:** Read `__init__.py` files first to understand package structure.
+1.  **Analyze:** Read `__init__.py` files first to understand package structure. When working on Streamlit code, search for and use appropriate skills (e.g., `choosing-streamlit-selection-widgets`).
 2.  **Plan:** Propose changes before executing.
 3.  **Implement:** Edit files in `src/`.
 4.  **Verify:** Run the app to ensure UI renders correctly and actions trigger.
