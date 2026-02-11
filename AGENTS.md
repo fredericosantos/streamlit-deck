@@ -102,3 +102,4 @@ The project uses `uv` for dependency management and execution.
     -   `docs:` Documentation only changes.
     -   `style:` Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc).
     -   `chore:` Build process or auxiliary tool changes.
+    -   **Push to Origin**: Always `git push origin master` after making changes. Do not accumulate local changes without pushing.
