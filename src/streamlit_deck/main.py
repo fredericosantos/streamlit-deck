@@ -85,7 +85,7 @@ if st.session_state.edit_mode:
         c1, c2 = st.columns(2)
         with c1:
             st.caption("Rows")
-            if st.button("➖", key="dec_row"):
+            if st.button("➖", key="dec_row", shortcut="-"):
                 layout["rows"] = max(1, rows - 1)
                 config.save_layout(st.session_state.current_layout_name, layout)
                 st.rerun()
@@ -93,14 +93,14 @@ if st.session_state.edit_mode:
                 f"<div style='text-align: center; font-size: 20px; font-weight: bold;'>{rows}</div>",
                 unsafe_allow_html=True,
             )
-            if st.button("➕", key="inc_row"):
+            if st.button("➕", key="inc_row", shortcut="+"):
                 layout["rows"] = min(8, rows + 1)
                 config.save_layout(st.session_state.current_layout_name, layout)
                 st.rerun()
 
         with c2:
             st.caption("Columns")
-            if st.button("➖", key="dec_col"):
+            if st.button("➖", key="dec_col", shortcut="-"):
                 layout["cols"] = max(1, cols - 1)
                 config.save_layout(st.session_state.current_layout_name, layout)
                 st.rerun()
@@ -108,7 +108,7 @@ if st.session_state.edit_mode:
                 f"<div style='text-align: center; font-size: 20px; font-weight: bold;'>{cols}</div>",
                 unsafe_allow_html=True,
             )
-            if st.button("➕", key="inc_col"):
+            if st.button("➕", key="inc_col", shortcut="+"):
                 layout["cols"] = min(8, cols + 1)
                 config.save_layout(st.session_state.current_layout_name, layout)
                 st.rerun()
@@ -163,11 +163,20 @@ with st.container(border=True):
                             st.image(APPS_DICT[app_name]["icon_bytes"], width=32)
 
                     # Unique key is crucial
+                    # Add shortcut for quick access (numbers for first 9 buttons)
+                    shortcut = None
+                    if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
+                        # Map position to number (1-9) for small grids
+                        shortcut_num = r * cols + c + 1
+                        if shortcut_num <= 9:
+                            shortcut = str(shortcut_num)
+
                     clicked = st.button(
                         label,
                         key=f"btn_{r}_{c}",
                         use_container_width=True,
                         type=btn_display_type,
+                        shortcut=shortcut,
                     )
 
                     if clicked:
@@ -447,7 +456,9 @@ if st.session_state.edit_mode and st.session_state.selected_button:
             )
 
         with c3:
-            if st.button("Save", type="primary", use_container_width=True):
+            if st.button(
+                "Save", type="primary", use_container_width=True, shortcut="Ctrl+S"
+            ):
                 # Construct final payload
                 final_type = "hotkey"
                 final_payload = ""
@@ -524,7 +535,7 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                 st.rerun()
 
         with c4:
-            if st.button("Clear", use_container_width=True):
+            if st.button("Clear", use_container_width=True, shortcut="Delete"):
                 if btn_id in layout["buttons"]:
                     del layout["buttons"][btn_id]
                     config.save_layout(st.session_state.current_layout_name, layout)
