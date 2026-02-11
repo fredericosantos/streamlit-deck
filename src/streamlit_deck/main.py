@@ -36,6 +36,9 @@ if "selected_button" not in st.session_state:
 # Load Layout
 layout = config.load_layout(st.session_state.current_layout_name)
 
+# Load apps data for icon access
+APPS_DICT = apps.get_installed_apps()
+
 # --- Sidebar ---
 st.sidebar.title("Streamlit Deck")
 
@@ -131,25 +134,41 @@ with st.container(border=True):
             # Run Mode: Show nothing (empty space) if empty
 
             label = btn_data.get("label", "")
+            btn_type = btn_data.get("type", "")
+            action = btn_data.get("action", "")
+
             if not label and st.session_state.edit_mode:
                 label = "➕"
 
             with columns[c]:
                 if label:
                     # Determine button type (primary if selected in edit mode)
-                    btn_type = "secondary"
+                    btn_display_type = "secondary"
                     if (
                         st.session_state.edit_mode
                         and st.session_state.selected_button == (r, c)
                     ):
-                        btn_type = "primary"
+                        btn_display_type = "primary"
+
+                    # Show app icon if this is an app button
+                    if btn_type == "app" and action:
+                        app_name = None
+                        # Find app name from command using APPS_REVERSE
+                        for name, data in APPS_DICT.items():
+                            if isinstance(data, dict) and data.get("command") == action:
+                                app_name = name
+                                break
+
+                        if app_name and APPS_DICT[app_name].get("icon_bytes"):
+                            # Show icon above button
+                            st.image(APPS_DICT[app_name]["icon_bytes"], width=32)
 
                     # Unique key is crucial
                     clicked = st.button(
                         label,
                         key=f"btn_{r}_{c}",
                         use_container_width=True,
-                        type=btn_type,
+                        type=btn_display_type,
                     )
 
                     if clicked:
@@ -191,22 +210,47 @@ if st.session_state.edit_mode and st.session_state.selected_button:
     BASIC_CHARS_MAP.update({d: d for d in string.digits})  # Digits map to themselves
 
     EXTENDED_CHARS = [
-        "ctrl",
-        "shift",
-        "alt",
-        "cmd",
-        "enter",
-        "esc",
-        "tab",
-        "space",
-        "backspace",
-        "delete",
-        "up",
-        "down",
-        "left",
-        "right",
-        "capslock",
-    ] + [f"f{i}" for i in range(1, 13)]
+        "⌃ ctrl",
+        "⇧ shift",
+        "⌥ alt",
+        "⌘ cmd",
+        "↵ enter",
+        "⎋ esc",
+        "⇥ tab",
+        "␣ space",
+        "⌫ backspace",
+        "⌦ delete",
+        "↑ up",
+        "↓ down",
+        "← left",
+        "→ right",
+        "⇪ capslock",
+    ] + [f"F{i}" for i in range(1, 13)]
+
+    # Mapping from display name to internal key name
+    EXTENDED_CHAR_MAP = {
+        "⌃ ctrl": "ctrl",
+        "⇧ shift": "shift",
+        "⌥ alt": "alt",
+        "⌘ cmd": "cmd",
+        "↵ enter": "enter",
+        "⎋ esc": "esc",
+        "⇥ tab": "tab",
+        "␣ space": "space",
+        "⌫ backspace": "backspace",
+        "⌦ delete": "delete",
+        "↑ up": "up",
+        "↓ down": "down",
+        "← left": "left",
+        "→ right": "right",
+        "⇪ capslock": "capslock",
+    }
+    # Add function keys
+    for i in range(1, 13):
+        EXTENDED_CHAR_MAP[f"F{i}"] = f"f{i}"
+
+    # Reverse mapping for initialization
+    EXTENDED_CHAR_REVERSE = {v: k for k, v in EXTENDED_CHAR_MAP.items()}
 
     MEDIA_MAP = {
         "playpause": "⏯ Play/Pause",
@@ -227,9 +271,12 @@ if st.session_state.edit_mode and st.session_state.selected_button:
     MOUSE_REVERSE = {v: k for k, v in MOUSE_MAP.items()}
 
     SCRIPTS_LIST = config.list_scripts()
-    APPS_DICT = apps.get_installed_apps()
     APPS_LIST = list(APPS_DICT.keys())
-    # No reverse map needed for apps since we now have richer dict
+    # Create reverse map for apps (command to name)
+    APPS_REVERSE = {}
+    for app_name, app_data in APPS_DICT.items():
+        if isinstance(app_data, dict) and "command" in app_data:
+            APPS_REVERSE[app_data["command"]] = app_name
 
     # --- State Initialization ---
     # Ensure draft variables exist even if we are re-entering this block without a selection change
@@ -291,11 +338,12 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                     k = k.strip().lower()
                     if k.upper() in BASIC_CHARS_MAP:
                         st.session_state.draft_basic.append(k.upper())
-                    elif k in EXTENDED_CHARS:
-                        st.session_state.draft_extended.append(k)
+                    elif k in EXTENDED_CHAR_REVERSE:
+                        st.session_state.draft_extended.append(EXTENDED_CHAR_REVERSE[k])
 
     # --- Callbacks ---
     def on_keys_change():
+        # Clear other selections when keys change
         st.session_state.draft_script = None
         st.session_state.draft_media = None
         st.session_state.draft_mouse = None
@@ -303,6 +351,7 @@ if st.session_state.edit_mode and st.session_state.selected_button:
         update_label_from_action()
 
     def on_script_change():
+        # Clear other selections when script changes
         if st.session_state.draft_script:
             st.session_state.draft_basic = []
             st.session_state.draft_extended = []
@@ -312,6 +361,7 @@ if st.session_state.edit_mode and st.session_state.selected_button:
             update_label_from_action()
 
     def on_media_change():
+        # Clear other selections when media changes
         if st.session_state.draft_media:
             st.session_state.draft_basic = []
             st.session_state.draft_extended = []
@@ -321,6 +371,7 @@ if st.session_state.edit_mode and st.session_state.selected_button:
             update_label_from_action()
 
     def on_mouse_change():
+        # Clear other selections when mouse changes
         if st.session_state.draft_mouse:
             st.session_state.draft_basic = []
             st.session_state.draft_extended = []
@@ -330,6 +381,7 @@ if st.session_state.edit_mode and st.session_state.selected_button:
             update_label_from_action()
 
     def on_app_change():
+        # Clear other selections when app changes
         if st.session_state.draft_app:
             st.session_state.draft_basic = []
             st.session_state.draft_extended = []
@@ -361,8 +413,16 @@ if st.session_state.edit_mode and st.session_state.selected_button:
         sel_ext = st.session_state.draft_extended or []
         sel_basic = st.session_state.draft_basic or []
 
-        sel_mods = [k for k in sel_ext if k in modifiers]
-        sel_other_ext = [k for k in sel_ext if k not in modifiers]
+        sel_mods = [
+            EXTENDED_CHAR_MAP.get(k, k)
+            for k in sel_ext
+            if EXTENDED_CHAR_MAP.get(k, k) in modifiers
+        ]
+        sel_other_ext = [
+            EXTENDED_CHAR_MAP.get(k, k)
+            for k in sel_ext
+            if EXTENDED_CHAR_MAP.get(k, k) not in modifiers
+        ]
 
         keys.extend(sel_mods)
         # Convert display basic chars back to internal (lowercase)
@@ -429,8 +489,16 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                     sel_ext = st.session_state.draft_extended or []
                     sel_basic = st.session_state.draft_basic or []
 
-                    sel_mods = [k for k in sel_ext if k in modifiers]
-                    sel_other_ext = [k for k in sel_ext if k not in modifiers]
+                    sel_mods = [
+                        EXTENDED_CHAR_MAP.get(k, k)
+                        for k in sel_ext
+                        if EXTENDED_CHAR_MAP.get(k, k) in modifiers
+                    ]
+                    sel_other_ext = [
+                        EXTENDED_CHAR_MAP.get(k, k)
+                        for k in sel_ext
+                        if EXTENDED_CHAR_MAP.get(k, k) not in modifiers
+                    ]
 
                     keys.extend(sel_mods)
                     keys.extend([BASIC_CHARS_MAP[c] for c in sel_basic])
@@ -461,7 +529,17 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                 if btn_id in layout["buttons"]:
                     del layout["buttons"][btn_id]
                     config.save_layout(st.session_state.current_layout_name, layout)
-                    st.rerun()
+
+                # Clear all draft session state
+                st.session_state.draft_basic = []
+                st.session_state.draft_extended = []
+                st.session_state.draft_script = None
+                st.session_state.draft_media = None
+                st.session_state.draft_mouse = None
+                st.session_state.draft_app = None
+                st.session_state.draft_label = ""
+
+                st.rerun()
 
         # 1. Basic Characters
         with st.expander("Basic Characters"):
@@ -500,25 +578,33 @@ if st.session_state.edit_mode and st.session_state.selected_button:
         with st.expander("Applications"):
             if APPS_LIST:
                 # Create a 3-column grid for app selection
-                cols = st.columns(3)
+                app_cols = st.columns(3)
                 for i, app_name in enumerate(APPS_LIST):
-                    with cols[i % 3]:
+                    with app_cols[i % 3]:
                         app_data = APPS_DICT[app_name]
 
-                        # Display icon if available
+                        # Create smaller button with image above it
                         if app_data.get("icon_bytes"):
-                            st.image(app_data["icon_bytes"], width=64)
-
-                        # Use button for selection
-                        button_label = app_name
+                            st.image(app_data["icon_bytes"], width=48)
 
                         if st.button(
-                            button_label,
+                            app_name,
                             key=f"app_select_{app_name}",
                             use_container_width=True,
                         ):
+                            # Use a safer approach - clear the session state first
+                            if "draft_basic" in st.session_state:
+                                st.session_state.pop("draft_basic")
+                            if "draft_extended" in st.session_state:
+                                st.session_state.pop("draft_extended")
+                            if "draft_script" in st.session_state:
+                                st.session_state.pop("draft_script")
+                            if "draft_media" in st.session_state:
+                                st.session_state.pop("draft_media")
+                            if "draft_mouse" in st.session_state:
+                                st.session_state.pop("draft_mouse")
+
                             st.session_state.draft_app = app_name
-                            on_app_change()
                             st.rerun()
             else:
                 st.warning("No applications found.")
