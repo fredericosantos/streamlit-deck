@@ -1,7 +1,6 @@
 import streamlit as st
 from streamlit_deck.backend import config, executor, apps
 import base64
-import streamlit.components.v2 as components
 
 
 # Utility functions for icon handling
@@ -10,114 +9,32 @@ def is_svg_data(data: bytes) -> bool:
     return data.startswith(b"<?xml") or data.startswith(b"<svg")
 
 
-def get_icon_html_source(icon_bytes: bytes) -> str:
-    """Get HTML source for icon - SVG inline or PNG base64."""
+def get_icon_display(icon_bytes: bytes, size: int = 48) -> str:
+    """Get HTML for displaying icon - SVG inline or PNG base64 img tag."""
+    if not icon_bytes:
+        return ""
+
     if is_svg_data(icon_bytes):
-        # SVG can be embedded directly
-        return icon_bytes.decode("utf-8", errors="ignore")
+        # SVG can be embedded directly with proper sizing
+        svg_content = icon_bytes.decode("utf-8", errors="ignore")
+        return f'<div style="width: {size}px; height: {size}px; display: flex; align-items: center; justify-content: center;">{svg_content}</div>'
     else:
         # PNG needs base64 encoding
         b64_encoded = base64.b64encode(icon_bytes).decode("utf-8")
-        return f"data:image/png;base64,{b64_encoded}"
+        return f'<img src="data:image/png;base64,{b64_encoded}" style="width: {size}px; height: {size}px;" alt="icon">'
 
 
-# HTML button component with embedded image using v2
-html_button_component = components.component(
-    name="html_button_with_icon",
-    html="""
-    <button id="button" style="width: 100%; height: 100px; font-size: 24px; font-weight: bold; border: 1px solid #ccc; border-radius: 4px; padding: 0.5em 1em; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background-color: #f0f0f0; color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-        <div id="icon-container" style="width: 48px; height: 48px; flex-shrink: 0; display: none;"></div>
-        <span id="label"></span>
-    </button>
-    """,
-    css="""
-    #button:hover {
-        background-color: #e0e0e0 !important;
-        border-color: #999 !important;
-    }
-    #button.primary {
-        background-color: #ff4b4b !important;
-        color: white !important;
-        border-color: #ff4b4b !important;
-    }
-    #button.primary:hover {
-        background-color: #e63939 !important;
-        border-color: #e63939 !important;
-    }
-    #icon-container svg {
-        width: 100%;
-        height: 100%;
-    }
-    """,
-    js="""
-    export default function(args, sendData) {
-        // Wait for DOM to be ready
-        const initComponent = () => {
-            const button = document.getElementById('button');
-            const iconContainer = document.getElementById('icon-container');
-            const label = document.getElementById('label');
-
-            if (!button || !iconContainer || !label) {
-                // If elements not found, try again later
-                setTimeout(initComponent, 10);
-                return;
-            }
-
-            // Set initial properties
-            if (args.icon_html) {
-                iconContainer.innerHTML = args.icon_html;
-                iconContainer.style.display = 'block';
-            }
-            label.textContent = args.label || '';
-
-            if (args.button_type === 'primary') {
-                button.classList.add('primary');
-            }
-
-            if (args.height) {
-                button.style.height = args.height;
-            }
-
-            // Handle click
-            button.onclick = () => {
-                // Send click event back to Streamlit
-                sendData({clicked: true});
-            };
-        };
-
-        // Initialize component
-        initComponent();
-    }
-    """,
-)
-
-
-def html_button_with_icon(
-    key: str,
-    label: str,
-    icon_bytes: bytes = None,
-    button_type: str = "secondary",
-    height: str = "100px",
-) -> bool:
-    """
-    Create an HTML button with embedded icon using streamlit v2 components.
-    Returns True if clicked.
-    """
-    icon_html = ""
+def display_icon_in_column(icon_bytes: bytes, size: int = 48):
+    """Display icon in a Streamlit column."""
     if icon_bytes:
-        icon_html = get_icon_html_source(icon_bytes)
-
-    # Call the component renderer
-    result = html_button_component(
-        key=key,
-        label=label,
-        icon_html=icon_html,
-        button_type=button_type,
-        height=height,
-    )
-
-    # Return click state
-    return result and result.get("clicked", False)
+        icon_html = get_icon_display(icon_bytes, size)
+        st.markdown(icon_html, unsafe_allow_html=True)
+    else:
+        # Empty placeholder to maintain alignment
+        st.markdown(
+            f'<div style="width: {size}px; height: {size}px;"></div>',
+            unsafe_allow_html=True,
+        )
 
 
 # Page Config
@@ -242,7 +159,6 @@ cols = layout.get("cols", 2)
 # Grid Layout
 with st.container(border=True):
     for r in range(rows):
-        columns = st.columns(cols)
         for c in range(cols):
             btn_id = f"{r}-{c}"
             btn_data = layout["buttons"].get(btn_id, {})
@@ -258,104 +174,99 @@ with st.container(border=True):
             if not label and st.session_state.edit_mode:
                 label = "➕"
 
-            with columns[c]:
-                if label:
-                    # Determine button type (primary if selected in edit mode)
-                    btn_display_type = "secondary"
-                    if (
-                        st.session_state.edit_mode
-                        and st.session_state.selected_button == (r, c)
-                    ):
-                        btn_display_type = "primary"
+            if label:
+                # Create a row for this button with icon and button columns
+                with st.container():
+                    cols_for_button = st.columns(
+                        [1, 4], gap="small"
+                    )  # Icon column narrower than button column
 
-                    # Prepare icon for app buttons
-                    icon_bytes = None
-                    if btn_type == "app" and action:
-                        app_name = None
-                        # Find app name from command using APPS_REVERSE
-                        for name, data in APPS_DICT.items():
-                            if isinstance(data, dict) and data.get("command") == action:
-                                app_name = name
-                                break
+                    with cols_for_button[0]:
+                        # Display icon in first column
+                        icon_bytes = None
+                        if btn_type == "app" and action:
+                            app_name = None
+                            # Find app name from command using APPS_REVERSE
+                            for name, data in APPS_DICT.items():
+                                if (
+                                    isinstance(data, dict)
+                                    and data.get("command") == action
+                                ):
+                                    app_name = name
+                                    break
 
-                        if app_name and APPS_DICT[app_name].get("icon_bytes"):
-                            icon_bytes = APPS_DICT[app_name]["icon_bytes"]
+                            if app_name and APPS_DICT[app_name].get("icon_bytes"):
+                                icon_bytes = APPS_DICT[app_name]["icon_bytes"]
 
-                    # Unique key is crucial
-                    # Add shortcut for quick access (numbers for first 9 buttons)
-                    shortcut = None
-                    if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
-                        # Map position to number (1-9) for small grids
-                        shortcut_num = r * cols + c + 1
-                        if shortcut_num <= 9:
-                            shortcut = str(shortcut_num)
+                        display_icon_in_column(icon_bytes, size=48)
 
-                    # Use HTML button component with embedded icon
-                    btn_key = f"btn_{r}_{c}"
-                    clicked = html_button_with_icon(
-                        key=btn_key,
-                        label=label,
-                        icon_bytes=icon_bytes,
-                        button_type=btn_display_type,
-                    )
+                    with cols_for_button[1]:
+                        # Determine button type (primary if selected in edit mode)
+                        btn_display_type = "secondary"
+                        if (
+                            st.session_state.edit_mode
+                            and st.session_state.selected_button == (r, c)
+                        ):
+                            btn_display_type = "primary"
 
-                    if clicked:
-                        if st.session_state.edit_mode:
-                            st.session_state.selected_button = (r, c)
-                            st.rerun()
-                        else:
-                            # Execute Action
-                            if btn_data:
-                                msg = executor.execute_action(
-                                    btn_data.get("type"), btn_data.get("action")
-                                )
-                                st.toast(msg)
-                else:
-                    # Render empty placeholder to maintain grid alignment
-                    st.markdown(
-                        "<div style='height: 100px;'></div>", unsafe_allow_html=True
-                    )
-                    # If in edit mode, we want this to be clickable to add a button.
-                    # But st.button with empty label is weird.
-                    # The logic above sets label="➕" in edit mode, so we only fall here in Run Mode.
+                        # Unique key is crucial
+                        # Add shortcut for quick access (numbers for first 9 buttons)
+                        shortcut = None
+                        if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
+                            # Map position to number (1-9) for small grids
+                            shortcut_num = r * cols + c + 1
+                            if shortcut_num <= 9:
+                                shortcut = str(shortcut_num)
+
+                        clicked = st.button(
+                            label,
+                            key=f"btn_{r}_{c}",
+                            use_container_width=True,
+                            type=btn_display_type,
+                            shortcut=shortcut,
+                        )
+
+                        if clicked:
+                            if st.session_state.edit_mode:
+                                st.session_state.selected_button = (r, c)
+                                st.rerun()
+                            else:
+                                # Execute Action
+                                if btn_data:
+                                    msg = executor.execute_action(
+                                        btn_data.get("type"), btn_data.get("action")
+                                    )
+                                    st.toast(msg)
 
 # Global keyboard shortcut handler for grid buttons (numbers 1-9)
 if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
-    shortcut_component = components.component(
-        name="keyboard_shortcuts",
-        html="<div id='shortcut-handler'></div>",
-        js=f"""
-        export default function(args, sendData) {{
-            const initShortcuts = () => {{
-                document.addEventListener('keydown', function(event) {{
-                    // Only handle single digit keys without modifiers
-                    if (event.key >= '1' && event.key <= '9' && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {{
-                        const num = parseInt(event.key);
-                        const maxButtons = {rows * cols};
-                        if (num <= maxButtons) {{
-                            // Calculate row and col from number (1-based to 0-based)
-                            const col = {cols};
-                            const r = Math.floor((num - 1) / col);
-                            const c = (num - 1) % col;
-                            const btnId = `btn_${{r}}_${{c}}`;
-                            const button = parent.document.getElementById(btnId);
-                            if (button) {{
-                                event.preventDefault();
-                                button.click();
-                            }}
-                        }}
+    # Add keyboard event listener using Streamlit's session state
+    st.markdown(
+        f"""
+        <script>
+        document.addEventListener('keydown', function(event) {{
+            // Only handle single digit keys without modifiers
+            if (event.key >= '1' && event.key <= '9' && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {{
+                const num = parseInt(event.key);
+                const maxButtons = {rows * cols};
+                if (num <= maxButtons) {{
+                    // Calculate row and col from number (1-based to 0-based)
+                    const col = {cols};
+                    const r = Math.floor((num - 1) / col);
+                    const c = (num - 1) % col;
+                    const btnId = `btn_${{r}}_${{c}}`;
+                    const button = document.querySelector(`button[key="${{btnId}}"]`);
+                    if (button) {{
+                        event.preventDefault();
+                        button.click();
                     }}
-                }});
-            }};
-
-            // Initialize shortcuts
-            initShortcuts();
-        }}
+                }}
+            }}
+        }});
+        </script>
         """,
+        unsafe_allow_html=True,
     )
-
-    # Render the shortcut handler (invisible)
-    shortcut_component(key="global_shortcuts")
 
 # --- Editor Interface (Below Grid) ---
 if st.session_state.edit_mode and st.session_state.selected_button:
@@ -745,36 +656,40 @@ if st.session_state.edit_mode and st.session_state.selected_button:
         # 4. Applications (New)
         with st.expander("Applications"):
             if APPS_LIST:
-                # Create a 3-column grid for app selection
-                app_cols = st.columns(3)
+                # Create a grid for app selection with icons and buttons
                 for i, app_name in enumerate(APPS_LIST):
-                    with app_cols[i % 3]:
-                        app_data = APPS_DICT[app_name]
+                    app_data = APPS_DICT[app_name]
 
-                        # Create button with embedded image
-                        icon_bytes = app_data.get("icon_bytes")
+                    # Create a row for each app with icon and button columns
+                    with st.container():
+                        app_cols = st.columns([1, 4], gap="small")
 
-                        app_btn_key = f"app_select_{app_name}"
-                        if html_button_with_icon(
-                            key=app_btn_key,
-                            label=app_name,
-                            icon_bytes=icon_bytes,
-                            height="80px",
-                        ):
-                            # Use a safer approach - clear the session state first
-                            if "draft_basic" in st.session_state:
-                                st.session_state.pop("draft_basic")
-                            if "draft_extended" in st.session_state:
-                                st.session_state.pop("draft_extended")
-                            if "draft_script" in st.session_state:
-                                st.session_state.pop("draft_script")
-                            if "draft_media" in st.session_state:
-                                st.session_state.pop("draft_media")
-                            if "draft_mouse" in st.session_state:
-                                st.session_state.pop("draft_mouse")
+                        with app_cols[0]:
+                            # Display icon in first column
+                            icon_bytes = app_data.get("icon_bytes")
+                            display_icon_in_column(icon_bytes, size=48)
 
-                            st.session_state.draft_app = app_name
-                            st.rerun()
+                        with app_cols[1]:
+                            app_btn_key = f"app_select_{app_name}"
+                            if st.button(
+                                app_name,
+                                key=app_btn_key,
+                                use_container_width=True,
+                            ):
+                                # Use a safer approach - clear the session state first
+                                if "draft_basic" in st.session_state:
+                                    st.session_state.pop("draft_basic")
+                                if "draft_extended" in st.session_state:
+                                    st.session_state.pop("draft_extended")
+                                if "draft_script" in st.session_state:
+                                    st.session_state.pop("draft_script")
+                                if "draft_media" in st.session_state:
+                                    st.session_state.pop("draft_media")
+                                if "draft_mouse" in st.session_state:
+                                    st.session_state.pop("draft_mouse")
+
+                                st.session_state.draft_app = app_name
+                                st.rerun()
             else:
                 st.warning("No applications found.")
 
