@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-from streamlit_deck.backend import config, executor
+from streamlit_deck.backend import config, executor, apps
 
 # Page Config
 st.set_page_config(
@@ -178,7 +178,7 @@ if st.session_state.edit_mode and st.session_state.selected_button:
     btn_data = layout["buttons"].get(btn_id, {})
 
     st.divider()
-    st.subheader(f"Editing Button: Row {r + 1}, Col {c + 1}")
+    # Header removed per user request
 
     # --- Mappings & Constants ---
     BASIC_CHARS_DISPLAY = [c.upper() for c in string.ascii_lowercase] + list(
@@ -224,6 +224,9 @@ if st.session_state.edit_mode and st.session_state.selected_button:
     MOUSE_REVERSE = {v: k for k, v in MOUSE_MAP.items()}
 
     SCRIPTS_LIST = config.list_scripts()
+    APPS_DICT = apps.get_installed_apps()
+    APPS_LIST = list(APPS_DICT.keys())
+    APPS_REVERSE = {v: k for k, v in APPS_DICT.items()}  # Path/Command -> Name
 
     # --- State Initialization ---
     # Ensure draft variables exist even if we are re-entering this block without a selection change
@@ -238,6 +241,8 @@ if st.session_state.edit_mode and st.session_state.selected_button:
         st.session_state.draft_media = None
     if "draft_mouse" not in st.session_state:
         st.session_state.draft_mouse = None
+    if "draft_app" not in st.session_state:
+        st.session_state.draft_app = None
     if "draft_label" not in st.session_state:
         st.session_state.draft_label = btn_data.get("label", "")
 
@@ -249,11 +254,11 @@ if st.session_state.edit_mode and st.session_state.selected_button:
 
         # Initialize Draft Values from current button data
         st.session_state.draft_basic = []
-
         st.session_state.draft_extended = []
         st.session_state.draft_script = None
         st.session_state.draft_media = None  # Single selection
         st.session_state.draft_mouse = None
+        st.session_state.draft_app = None
         st.session_state.draft_label = btn_data.get("label", "")
 
         curr_type = btn_data.get("type", "hotkey")
@@ -263,6 +268,14 @@ if st.session_state.edit_mode and st.session_state.selected_button:
             st.session_state.draft_script = curr_action
         elif curr_type == "mouse" and curr_action in MOUSE_MAP:
             st.session_state.draft_mouse = MOUSE_MAP[curr_action]
+        elif curr_type == "app":
+            # Try to find app name from command/path
+            if curr_action in APPS_REVERSE:
+                st.session_state.draft_app = APPS_REVERSE[curr_action]
+            else:
+                # If exact path not found (maybe app updated path), show raw or closest match?
+                # For now, just leave empty or maybe check value match logic
+                pass
         elif curr_type == "hotkey":
             # Check for Media
             keys = curr_action.split("+")
@@ -283,6 +296,7 @@ if st.session_state.edit_mode and st.session_state.selected_button:
         st.session_state.draft_script = None
         st.session_state.draft_media = None
         st.session_state.draft_mouse = None
+        st.session_state.draft_app = None
         update_label_from_action()
 
     def on_script_change():
@@ -291,6 +305,7 @@ if st.session_state.edit_mode and st.session_state.selected_button:
             st.session_state.draft_extended = []
             st.session_state.draft_media = None
             st.session_state.draft_mouse = None
+            st.session_state.draft_app = None
             update_label_from_action()
 
     def on_media_change():
@@ -299,6 +314,7 @@ if st.session_state.edit_mode and st.session_state.selected_button:
             st.session_state.draft_extended = []
             st.session_state.draft_script = None
             st.session_state.draft_mouse = None
+            st.session_state.draft_app = None
             update_label_from_action()
 
     def on_mouse_change():
@@ -307,6 +323,16 @@ if st.session_state.edit_mode and st.session_state.selected_button:
             st.session_state.draft_extended = []
             st.session_state.draft_script = None
             st.session_state.draft_media = None
+            st.session_state.draft_app = None
+            update_label_from_action()
+
+    def on_app_change():
+        if st.session_state.draft_app:
+            st.session_state.draft_basic = []
+            st.session_state.draft_extended = []
+            st.session_state.draft_script = None
+            st.session_state.draft_media = None
+            st.session_state.draft_mouse = None
             update_label_from_action()
 
     def update_label_from_action():
@@ -318,6 +344,8 @@ if st.session_state.edit_mode and st.session_state.selected_button:
     current_action_str = ""
     if st.session_state.draft_script:
         current_action_str = f"Script: {st.session_state.draft_script}"
+    elif st.session_state.draft_app:
+        current_action_str = f"App: {st.session_state.draft_app}"
     elif st.session_state.draft_media:
         current_action_str = f"Media: {st.session_state.draft_media}"
     elif st.session_state.draft_mouse:
@@ -343,7 +371,7 @@ if st.session_state.edit_mode and st.session_state.selected_button:
 
     # --- UI Layout ---
     with st.container(border=True):
-        c1, c2 = st.columns(2)
+        c1, c2, c3, c4 = st.columns([3, 3, 1, 1], vertical_alignment="bottom")
         with c1:
             st.session_state.draft_label = st.text_input(
                 "Button Label", value=st.session_state.draft_label
@@ -356,65 +384,8 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                 help="Automatically updated based on selections below.",
             )
 
-        # 1. Basic Characters
-        with st.expander("Basic Characters"):
-            st.pills(
-                "Select Characters",
-                BASIC_CHARS_DISPLAY,
-                selection_mode="multi",
-                key="draft_basic",
-                on_change=on_keys_change,
-            )
-
-        # 2. Extended Characters
-        with st.expander("Extended Characters"):
-            st.pills(
-                "Select Special Keys",
-                EXTENDED_CHARS,
-                selection_mode="multi",
-                key="draft_extended",
-                on_change=on_keys_change,
-            )
-
-        # 3. Functions (Scripts)
-        with st.expander("Functions (Scripts)"):
-            if SCRIPTS_LIST:
-                st.pills(
-                    "Select Script",
-                    SCRIPTS_LIST,
-                    selection_mode="single",
-                    key="draft_script",
-                    on_change=on_script_change,
-                )
-            else:
-                st.warning("No scripts found in scripts/ directory")
-
-        # 4. Media and Audio Control
-        with st.expander("Media & Audio"):
-            st.pills(
-                "Media Controls",
-                list(MEDIA_MAP.values()),
-                selection_mode="single",  # Changed to single per requirement
-                key="draft_media",
-                on_change=on_media_change,
-            )
-
-        # 5. Mouse
-        with st.expander("Mouse"):
-            st.pills(
-                "Mouse Actions",
-                list(MOUSE_MAP.values()),
-                selection_mode="single",
-                key="draft_mouse",
-                on_change=on_mouse_change,
-            )
-
-        # --- Save / Clear ---
-        st.write("")
-        col_save, col_clear = st.columns([1, 6])
-
-        with col_save:
-            if st.button("Save", type="primary"):
+        with c3:
+            if st.button("Save", type="primary", use_container_width=True):
                 # Construct final payload
                 final_type = "hotkey"
                 final_payload = ""
@@ -425,6 +396,18 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                     final_payload = st.session_state.draft_script
                     if not final_label:
                         final_label = final_payload
+                elif st.session_state.draft_app:
+                    final_type = "app"
+                    # Payload is the command/path
+                    if st.session_state.draft_app in APPS_DICT:
+                        final_payload = APPS_DICT[st.session_state.draft_app]
+                    else:
+                        final_payload = (
+                            st.session_state.draft_app
+                        )  # Should not happen usually
+
+                    if not final_label:
+                        final_label = st.session_state.draft_app
                 elif st.session_state.draft_mouse:
                     final_type = "mouse"
                     final_payload = MOUSE_REVERSE[st.session_state.draft_mouse]
@@ -474,12 +457,124 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                 st.toast("Button Saved!")
                 st.rerun()
 
-        with col_clear:
-            if st.button("Clear Button"):
+        with c4:
+            if st.button("Clear", use_container_width=True):
                 if btn_id in layout["buttons"]:
                     del layout["buttons"][btn_id]
                     config.save_layout(st.session_state.current_layout_name, layout)
                     st.rerun()
+
+        # 1. Basic Characters
+        with st.expander("Basic Characters"):
+            st.pills(
+                "Select Characters",
+                BASIC_CHARS_DISPLAY,
+                selection_mode="multi",
+                key="draft_basic",
+                on_change=on_keys_change,
+            )
+
+        # 2. Extended Characters
+        with st.expander("Extended Characters"):
+            st.pills(
+                "Select Special Keys",
+                EXTENDED_CHARS,
+                selection_mode="multi",
+                key="draft_extended",
+                on_change=on_keys_change,
+            )
+
+        # 3. Functions (Scripts)
+        with st.expander("Functions (Scripts)"):
+            if SCRIPTS_LIST:
+                st.pills(
+                    "Select Script",
+                    SCRIPTS_LIST,
+                    selection_mode="single",
+                    key="draft_script",
+                    on_change=on_script_change,
+                )
+            else:
+                st.warning("No scripts found in scripts/ directory")
+
+        # 4. Applications (New)
+        with st.expander("Applications"):
+            if APPS_LIST:
+                # Use selectbox for apps as list might be long
+                # We handle syncing with session state manually since selectbox doesn't support 'key' binding same as pills for our custom logic easily?
+                # Actually we can bind key="draft_app" directly
+                # But selectbox returns the value.
+
+                # Using key="draft_app" with on_change works fine for selectbox too
+                # But selectbox UI is different (dropdown).
+
+                # Important: selectbox defaults to first item if value is None.
+                # We need to handle index.
+
+                app_idx = 0
+                if st.session_state.draft_app in APPS_LIST:
+                    app_idx = APPS_LIST.index(st.session_state.draft_app)
+                elif st.session_state.draft_app is None:
+                    app_idx = None
+
+                # Streamlit selectbox doesn't support 'None' selection easily without a placeholder.
+                # We'll use a placeholder "Select an App..."
+
+                display_apps = ["Select an App..."] + APPS_LIST
+
+                current_app_display = (
+                    st.session_state.draft_app
+                    if st.session_state.draft_app
+                    else "Select an App..."
+                )
+                if current_app_display not in display_apps:
+                    current_app_display = "Select an App..."
+
+                selected_app_display = st.selectbox(
+                    "Launch Application",
+                    display_apps,
+                    index=display_apps.index(current_app_display),
+                    key="draft_app_selection",  # Temporary key
+                    on_change=lambda: None,  # We handle logic after
+                )
+
+                # Manual sync logic because selectbox behavior with 'None' is tricky
+                if selected_app_display != "Select an App...":
+                    if st.session_state.draft_app != selected_app_display:
+                        st.session_state.draft_app = selected_app_display
+                        on_app_change()
+                        st.rerun()  # Force rerun to update other cleared fields visually if needed
+                elif (
+                    selected_app_display == "Select an App..."
+                    and st.session_state.draft_app is not None
+                ):
+                    # User explicitly unselected? Or just default state.
+                    # If we want to allow unselecting, we set draft_app to None
+                    # But only if it was previously set.
+                    pass
+
+            else:
+                st.warning("No applications found.")
+
+        # 5. Media and Audio Control
+        with st.expander("Media & Audio"):
+            st.pills(
+                "Media Controls",
+                list(MEDIA_MAP.values()),
+                selection_mode="single",  # Changed to single per requirement
+                key="draft_media",
+                on_change=on_media_change,
+            )
+
+        # 6. Mouse
+        with st.expander("Mouse"):
+            st.pills(
+                "Mouse Actions",
+                list(MOUSE_MAP.values()),
+                selection_mode="single",
+                key="draft_mouse",
+                on_change=on_mouse_change,
+            )
 
 # --- Footer / Info ---
 if st.session_state.edit_mode:
