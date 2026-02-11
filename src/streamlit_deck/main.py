@@ -180,101 +180,145 @@ if st.session_state.edit_mode and st.session_state.selected_button:
     st.divider()
     st.subheader(f"Editing Button: Row {r + 1}, Col {c + 1}")
 
+    # --- Pre-calculate Defaults ---
+    # Define lists first so we can use them for matching
+    basic_chars = list(string.ascii_lowercase + string.digits)
+    extended_chars = [
+        "ctrl",
+        "shift",
+        "alt",
+        "cmd",
+        "enter",
+        "esc",
+        "tab",
+        "space",
+        "backspace",
+        "delete",
+        "up",
+        "down",
+        "left",
+        "right",
+        "capslock",
+    ] + [f"f{i}" for i in range(1, 13)]
+    scripts_list = config.list_scripts()
+    media_keys = [
+        "playpause",
+        "volumemute",
+        "volumeup",
+        "volumedown",
+        "nexttrack",
+        "prevtrack",
+    ]
+    mouse_actions = [
+        "left_click",
+        "right_click",
+        "middle_click",
+        "double_left_click",
+    ]
+
+    # Initialize defaults
+    def_basic = []
+    def_extended = []
+    def_media = []
+    def_script = None
+    def_mouse = None
+
+    current_type = btn_data.get("type", "hotkey")
+    current_action = btn_data.get("action", "")
+
+    if current_type == "script":
+        if current_action in scripts_list:
+            def_script = current_action
+    elif current_type == "mouse":
+        if current_action in mouse_actions:
+            def_mouse = current_action
+    elif current_type == "hotkey":
+        keys = current_action.split("+")
+        for k in keys:
+            k = k.strip().lower()
+            if k in basic_chars:
+                def_basic.append(k)
+            elif k in extended_chars:
+                def_extended.append(k)
+            elif k in media_keys:
+                def_media.append(k)
+
     with st.container(border=True):
-        # Manual Overrides
-        c1, c2 = st.columns(2)
-        with c1:
-            current_label = st.text_input(
-                "Button Label", value=btn_data.get("label", "")
-            )
-        with c2:
-            current_action = st.text_input(
-                "Action Payload (Auto-filled by selections)",
-                value=btn_data.get("action", ""),
-                help="Manually edit this if needed. Selections below will overwrite this.",
-            )
-
-        # --- Selection Expanders ---
-
-        # 1. Basic Characters
-        with st.expander("Basic Characters"):
-            basic_chars = list(string.ascii_lowercase + string.digits)
-            selected_basic = st.pills(
-                "Select Characters", basic_chars, selection_mode="multi"
-            )
-
-        # 2. Extended Characters
-        with st.expander("Extended Characters"):
-            extended_chars = [
-                "ctrl",
-                "shift",
-                "alt",
-                "cmd",
-                "enter",
-                "esc",
-                "tab",
-                "space",
-                "backspace",
-                "delete",
-                "up",
-                "down",
-                "left",
-                "right",
-                "capslock",
-            ] + [f"f{i}" for i in range(1, 13)]
-            selected_extended = st.pills(
-                "Select Special Keys", extended_chars, selection_mode="multi"
-            )
-
-        # 3. Functions (Scripts)
-        with st.expander("Functions (Scripts)"):
-            scripts = config.list_scripts()
-            if scripts:
-                selected_script = st.pills(
-                    "Select Script", scripts, selection_mode="single"
+        with st.form("edit_button_form"):
+            # Manual Overrides
+            c1, c2 = st.columns(2)
+            with c1:
+                current_label = st.text_input(
+                    "Button Label", value=btn_data.get("label", "")
                 )
-            else:
-                st.warning("No scripts found in scripts/ directory")
-                selected_script = None
+            with c2:
+                current_action_input = st.text_input(
+                    "Action Payload (Auto-filled by selections)",
+                    value=btn_data.get("action", ""),
+                    help="Manually edit this if needed. Selections below will overwrite this.",
+                )
 
-        # 4. Media and Audio Control
-        with st.expander("Media & Audio"):
-            media_keys = [
-                "playpause",
-                "volumemute",
-                "volumeup",
-                "volumedown",
-                "nexttrack",
-                "prevtrack",
-            ]
-            selected_media = st.pills(
-                "Media Controls", media_keys, selection_mode="multi"
-            )
+            # --- Selection Expanders ---
 
-        # 5. Mouse
-        with st.expander("Mouse"):
-            mouse_actions = [
-                "left_click",
-                "right_click",
-                "middle_click",
-                "double_left_click",
-            ]
-            selected_mouse = st.pills(
-                "Mouse Actions", mouse_actions, selection_mode="single"
-            )
+            # 1. Basic Characters
+            with st.expander("Basic Characters"):
+                selected_basic = st.pills(
+                    "Select Characters",
+                    basic_chars,
+                    selection_mode="multi",
+                    default=def_basic,
+                )
 
-        # --- Save Logic ---
-        st.write("")
-        col_save, col_clear = st.columns([1, 6])
+            # 2. Extended Characters
+            with st.expander("Extended Characters"):
+                selected_extended = st.pills(
+                    "Select Special Keys",
+                    extended_chars,
+                    selection_mode="multi",
+                    default=def_extended,
+                )
 
-        with col_save:
-            if st.button("Save", type="primary"):
+            # 3. Functions (Scripts)
+            with st.expander("Functions (Scripts)"):
+                if scripts_list:
+                    selected_script = st.pills(
+                        "Select Script",
+                        scripts_list,
+                        selection_mode="single",
+                        default=def_script,
+                    )
+                else:
+                    st.warning("No scripts found in scripts/ directory")
+                    selected_script = None
+
+            # 4. Media and Audio Control
+            with st.expander("Media & Audio"):
+                selected_media = st.pills(
+                    "Media Controls",
+                    media_keys,
+                    selection_mode="multi",
+                    default=def_media,
+                )
+
+            # 5. Mouse
+            with st.expander("Mouse"):
+                selected_mouse = st.pills(
+                    "Mouse Actions",
+                    mouse_actions,
+                    selection_mode="single",
+                    default=def_mouse,
+                )
+
+            # --- Save Logic ---
+            st.write("")
+            submitted = st.form_submit_button("Save", type="primary")
+
+            if submitted:
                 # Determine Action Type and Payload
                 final_type = "hotkey"
-                final_payload = current_action
+                final_payload = current_action_input
 
                 # Priority: Script > Mouse > Keys (Basic/Extended/Media)
-                # If pills were selected, they override the manual input
 
                 if selected_script:
                     final_type = "script"
@@ -289,12 +333,10 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                         current_label = selected_mouse.replace("_", " ").title()
 
                 else:
-                    # Combine all key selections
+                    # Check if any keys selected
                     all_keys = []
-                    # Add modifiers first for convention
                     modifiers = ["ctrl", "shift", "alt", "cmd"]
 
-                    # Filter modifiers from extended
                     selected_mods = [
                         k for k in (selected_extended or []) if k in modifiers
                     ]
@@ -314,6 +356,7 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                         final_payload = "+".join(all_keys)
                         if not current_label:
                             current_label = final_payload
+                    # If no keys selected, we fall back to final_payload = current_action_input (manual)
 
                 # Save
                 if btn_id not in layout["buttons"]:
@@ -330,12 +373,12 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                 st.toast("Button Saved!")
                 st.rerun()
 
-        with col_clear:
-            if st.button("Clear Button"):
-                if btn_id in layout["buttons"]:
-                    del layout["buttons"][btn_id]
-                    config.save_layout(st.session_state.current_layout_name, layout)
-                    st.rerun()
+        # Clear Button (Outside Form)
+        if st.button("Clear Button"):
+            if btn_id in layout["buttons"]:
+                del layout["buttons"][btn_id]
+                config.save_layout(st.session_state.current_layout_name, layout)
+                st.rerun()
 
 # --- Footer / Info ---
 if st.session_state.edit_mode:
