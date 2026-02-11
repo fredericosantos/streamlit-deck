@@ -226,14 +226,30 @@ if st.session_state.edit_mode and st.session_state.selected_button:
     SCRIPTS_LIST = config.list_scripts()
 
     # --- State Initialization ---
+    # Ensure draft variables exist even if we are re-entering this block without a selection change
+    # (e.g. after a code reload or if they were somehow cleared)
+    if "draft_basic" not in st.session_state:
+        st.session_state.draft_basic = []
+    if "draft_extended" not in st.session_state:
+        st.session_state.draft_extended = []
+    if "draft_script" not in st.session_state:
+        st.session_state.draft_script = None
+    if "draft_media" not in st.session_state:
+        st.session_state.draft_media = None
+    if "draft_mouse" not in st.session_state:
+        st.session_state.draft_mouse = None
+    if "draft_label" not in st.session_state:
+        st.session_state.draft_label = btn_data.get("label", "")
+
     # We use 'last_selected_btn_id' to detect when the user clicked a different button
     # and re-initialize the draft state from the config.
     current_selection_id = f"sel_{r}_{c}"
     if st.session_state.get("last_selection_id") != current_selection_id:
         st.session_state.last_selection_id = current_selection_id
 
-        # Initialize Draft Values
+        # Initialize Draft Values from current button data
         st.session_state.draft_basic = []
+
         st.session_state.draft_extended = []
         st.session_state.draft_script = None
         st.session_state.draft_media = None  # Single selection
@@ -464,13 +480,6 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                     del layout["buttons"][btn_id]
                     config.save_layout(st.session_state.current_layout_name, layout)
                     st.rerun()
-
-        # Clear Button (Outside Form)
-        if st.button("Clear Button"):
-            if btn_id in layout["buttons"]:
-                del layout["buttons"][btn_id]
-                config.save_layout(st.session_state.current_layout_name, layout)
-                st.rerun()
 
 # --- Footer / Info ---
 if st.session_state.edit_mode:
