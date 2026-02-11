@@ -11,5 +11,4 @@ dependencies = [
     "pynput>=1.8.1",
     "streamlit>=1.54.0",
     "Pillow>=10.0.0",
-    "streamlit-image-button>=0.2.2.13",
 ]

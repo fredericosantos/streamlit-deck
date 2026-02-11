@@ -2,7 +2,7 @@ import subprocess
 import os
 from pynput.keyboard import Key, Controller as KeyboardController, KeyCode
 from pynput.mouse import Button, Controller as MouseController
-from typing import Union, List
+from typing import Union
 from streamlit_deck.backend import apps
 
 keyboard = KeyboardController()
@@ -95,7 +95,7 @@ def get_key_object(key_name: str) -> Union[Key, KeyCode]:
     # This might fail for unknown long strings, but is a reasonable default
     try:
         return KeyCode.from_char(key_name[0])
-    except:
+    except (ValueError, TypeError):
         return None
 
 

@@ -160,8 +160,8 @@ The project uses `uv` for dependency management and execution, with Python 3.13+
 ### Icon and Image Handling
 - **App Icons:** Extract from macOS .app bundles using PIL and convert to PNG bytes.
 - **Caching:** Use hashed cache keys for app icon storage.
-- **Custom Components:** Use `streamlit-image-button` for integrated image buttons.
-- **Temp Files:** Create temporary PNG files for component compatibility.
+- **Display:** Show icons above buttons using `st.image()` for reliable rendering.
+- **Temp Files:** Avoid temporary file creation - work directly with byte data.
 
 ### Configuration Management
 - **JSON Storage:** Use JSON files for layout persistence.
