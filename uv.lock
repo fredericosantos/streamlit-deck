@@ -752,7 +752,6 @@ dependencies = [
     { name = "pillow" },
     { name = "pynput" },
     { name = "streamlit" },
-    { name = "streamlit-image-button" },
 ]
 
 [package.metadata]
@@ -760,19 +759,6 @@ requires-dist = [
     { name = "pillow", specifier = ">=10.0.0" },
     { name = "pynput", specifier = ">=1.8.1" },
     { name = "streamlit", specifier = ">=1.54.0" },
-    { name = "streamlit-image-button", specifier = ">=0.2.2.13" },
-]
-
-[[package]]
-name = "streamlit-image-button"
-version = "0.2.2.13"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "streamlit" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/7f/a2/d3be060c6be69e06c232bd8690c331c6548c6264b092233534173e5b8000/streamlit_image_button-0.2.2.13.tar.gz", hash = "sha256:1e4dd442b3f1fded48de221c3b962307230aec2a19492b82a6e33acf00111f51", size = 536701, upload-time = "2023-11-13T15:35:32.375Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c8/0a/60bfdaf522f49d7d4d776855ed6a4c2de42c5416215327d85e39f998c789/streamlit_image_button-0.2.2.13-py3-none-any.whl", hash = "sha256:e6d67a5ed5b07c9c0b04eb87840bb9538a824ac968be6cc10a08a589b937ca80", size = 12183122, upload-time = "2023-11-13T15:35:28.96Z" },
 ]
 
 [[package]]

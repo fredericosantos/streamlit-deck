@@ -1,6 +1,6 @@
 import json
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 LAYOUTS_DIR = "layouts"
 SCRIPTS_DIR = "scripts"

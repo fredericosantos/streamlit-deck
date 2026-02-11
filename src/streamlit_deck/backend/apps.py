@@ -35,7 +35,7 @@ def extract_macos_icon(app_path: str, size: tuple = (64, 64)) -> Optional[bytes]
             buffer = BytesIO()
             img.save(buffer, format="PNG")
             return buffer.getvalue()
-    except Exception as e:
+    except Exception:
         # print(f"Error extracting icon from {app_path}: {e}")
         return None
 
