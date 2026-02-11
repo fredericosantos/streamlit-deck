@@ -50,30 +50,32 @@ html_button_component = components.component(
     }
     """,
     js="""
-    const button = document.getElementById('button');
-    const iconContainer = document.getElementById('icon-container');
-    const label = document.getElementById('label');
+    export default function(args, sendData) {
+        const button = document.getElementById('button');
+        const iconContainer = document.getElementById('icon-container');
+        const label = document.getElementById('label');
 
-    // Set initial properties
-    if (data.icon_html) {
-        iconContainer.innerHTML = data.icon_html;
-        iconContainer.style.display = 'block';
+        // Set initial properties
+        if (args.icon_html) {
+            iconContainer.innerHTML = args.icon_html;
+            iconContainer.style.display = 'block';
+        }
+        label.textContent = args.label || '';
+
+        if (args.button_type === 'primary') {
+            button.classList.add('primary');
+        }
+
+        if (args.height) {
+            button.style.height = args.height;
+        }
+
+        // Handle click
+        button.onclick = () => {
+            // Send click event back to Streamlit
+            sendData({clicked: true});
+        };
     }
-    label.textContent = data.label || '';
-
-    if (data.button_type === 'primary') {
-        button.classList.add('primary');
-    }
-
-    if (data.height) {
-        button.style.height = data.height;
-    }
-
-    // Handle click
-    button.onclick = () => {
-        // Send click event back to Streamlit
-        sendData({clicked: true});
-    };
     """,
 )
 
@@ -96,12 +98,10 @@ def html_button_with_icon(
     # Call the component renderer
     result = html_button_component(
         key=key,
-        data={
-            "label": label,
-            "icon_html": icon_html,
-            "button_type": button_type,
-            "height": height,
-        },
+        label=label,
+        icon_html=icon_html,
+        button_type=button_type,
+        height=height,
     )
 
     # Return click state
@@ -313,25 +313,27 @@ if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
         name="keyboard_shortcuts",
         html="<div id='shortcut-handler'></div>",
         js=f"""
-        document.addEventListener('keydown', function(event) {{
-            // Only handle single digit keys without modifiers
-            if (event.key >= '1' && event.key <= '9' && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {{
-                const num = parseInt(event.key);
-                const maxButtons = {rows * cols};
-                if (num <= maxButtons) {{
-                    // Calculate row and col from number (1-based to 0-based)
-                    const col = {cols};
-                    const r = Math.floor((num - 1) / col);
-                    const c = (num - 1) % col;
-                    const btnId = `btn_${{r}}_${{c}}`;
-                    const button = parent.document.getElementById(btnId);
-                    if (button) {{
-                        event.preventDefault();
-                        button.click();
+        export default function(args, sendData) {{
+            document.addEventListener('keydown', function(event) {{
+                // Only handle single digit keys without modifiers
+                if (event.key >= '1' && event.key <= '9' && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {{
+                    const num = parseInt(event.key);
+                    const maxButtons = {rows * cols};
+                    if (num <= maxButtons) {{
+                        // Calculate row and col from number (1-based to 0-based)
+                        const col = {cols};
+                        const r = Math.floor((num - 1) / col);
+                        const c = (num - 1) % col;
+                        const btnId = `btn_${{r}}_${{c}}`;
+                        const button = parent.document.getElementById(btnId);
+                        if (button) {{
+                            event.preventDefault();
+                            button.click();
+                        }}
                     }}
                 }}
-            }}
-        }});
+            }});
+        }}
         """,
     )
 
