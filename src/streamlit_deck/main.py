@@ -180,10 +180,14 @@ if st.session_state.edit_mode and st.session_state.selected_button:
     st.divider()
     st.subheader(f"Editing Button: Row {r + 1}, Col {c + 1}")
 
-    # --- Pre-calculate Defaults ---
-    # Define lists first so we can use them for matching
-    basic_chars = list(string.ascii_lowercase + string.digits)
-    extended_chars = [
+    # --- Mappings & Constants ---
+    BASIC_CHARS_DISPLAY = [c.upper() for c in string.ascii_lowercase] + list(
+        string.digits
+    )
+    BASIC_CHARS_MAP = {c.upper(): c for c in string.ascii_lowercase}
+    BASIC_CHARS_MAP.update({d: d for d in string.digits})  # Digits map to themselves
+
+    EXTENDED_CHARS = [
         "ctrl",
         "shift",
         "alt",
@@ -200,163 +204,244 @@ if st.session_state.edit_mode and st.session_state.selected_button:
         "right",
         "capslock",
     ] + [f"f{i}" for i in range(1, 13)]
-    scripts_list = config.list_scripts()
-    media_keys = [
-        "playpause",
-        "volumemute",
-        "volumeup",
-        "volumedown",
-        "nexttrack",
-        "prevtrack",
-    ]
-    mouse_actions = [
-        "left_click",
-        "right_click",
-        "middle_click",
-        "double_left_click",
-    ]
 
-    # Initialize defaults
-    def_basic = []
-    def_extended = []
-    def_media = []
-    def_script = None
-    def_mouse = None
+    MEDIA_MAP = {
+        "playpause": "⏯ Play/Pause",
+        "volumemute": "🔇 Mute",
+        "volumeup": "🔊 Vol Up",
+        "volumedown": "🔉 Vol Down",
+        "nexttrack": "⏭ Next",
+        "prevtrack": "⏮ Prev",
+    }
+    MEDIA_REVERSE = {v: k for k, v in MEDIA_MAP.items()}
 
-    current_type = btn_data.get("type", "hotkey")
-    current_action = btn_data.get("action", "")
+    MOUSE_MAP = {
+        "left_click": "Left Click",
+        "right_click": "Right Click",
+        "middle_click": "Middle Click",
+        "double_left_click": "Double Click",
+    }
+    MOUSE_REVERSE = {v: k for k, v in MOUSE_MAP.items()}
 
-    if current_type == "script":
-        if current_action in scripts_list:
-            def_script = current_action
-    elif current_type == "mouse":
-        if current_action in mouse_actions:
-            def_mouse = current_action
-    elif current_type == "hotkey":
-        keys = current_action.split("+")
-        for k in keys:
-            k = k.strip().lower()
-            if k in basic_chars:
-                def_basic.append(k)
-            elif k in extended_chars:
-                def_extended.append(k)
-            elif k in media_keys:
-                def_media.append(k)
+    SCRIPTS_LIST = config.list_scripts()
 
+    # --- State Initialization ---
+    # We use 'last_selected_btn_id' to detect when the user clicked a different button
+    # and re-initialize the draft state from the config.
+    current_selection_id = f"sel_{r}_{c}"
+    if st.session_state.get("last_selection_id") != current_selection_id:
+        st.session_state.last_selection_id = current_selection_id
+
+        # Initialize Draft Values
+        st.session_state.draft_basic = []
+        st.session_state.draft_extended = []
+        st.session_state.draft_script = None
+        st.session_state.draft_media = None  # Single selection
+        st.session_state.draft_mouse = None
+        st.session_state.draft_label = btn_data.get("label", "")
+
+        curr_type = btn_data.get("type", "hotkey")
+        curr_action = btn_data.get("action", "")
+
+        if curr_type == "script" and curr_action in SCRIPTS_LIST:
+            st.session_state.draft_script = curr_action
+        elif curr_type == "mouse" and curr_action in MOUSE_MAP:
+            st.session_state.draft_mouse = MOUSE_MAP[curr_action]
+        elif curr_type == "hotkey":
+            # Check for Media
+            keys = curr_action.split("+")
+            # If single key and in media map
+            if len(keys) == 1 and keys[0] in MEDIA_MAP:
+                st.session_state.draft_media = MEDIA_MAP[keys[0]]
+            else:
+                # Normal hotkeys
+                for k in keys:
+                    k = k.strip().lower()
+                    if k.upper() in BASIC_CHARS_MAP:
+                        st.session_state.draft_basic.append(k.upper())
+                    elif k in EXTENDED_CHARS:
+                        st.session_state.draft_extended.append(k)
+
+    # --- Callbacks ---
+    def on_keys_change():
+        st.session_state.draft_script = None
+        st.session_state.draft_media = None
+        st.session_state.draft_mouse = None
+        update_label_from_action()
+
+    def on_script_change():
+        if st.session_state.draft_script:
+            st.session_state.draft_basic = []
+            st.session_state.draft_extended = []
+            st.session_state.draft_media = None
+            st.session_state.draft_mouse = None
+            update_label_from_action()
+
+    def on_media_change():
+        if st.session_state.draft_media:
+            st.session_state.draft_basic = []
+            st.session_state.draft_extended = []
+            st.session_state.draft_script = None
+            st.session_state.draft_mouse = None
+            update_label_from_action()
+
+    def on_mouse_change():
+        if st.session_state.draft_mouse:
+            st.session_state.draft_basic = []
+            st.session_state.draft_extended = []
+            st.session_state.draft_script = None
+            st.session_state.draft_media = None
+            update_label_from_action()
+
+    def update_label_from_action():
+        # Optional: Auto-update label if it's empty or matches previous action
+        # For now, we'll leave this manual unless user specifically requested auto-labeling logic
+        pass
+
+    # --- Computed Action String ---
+    current_action_str = ""
+    if st.session_state.draft_script:
+        current_action_str = f"Script: {st.session_state.draft_script}"
+    elif st.session_state.draft_media:
+        current_action_str = f"Media: {st.session_state.draft_media}"
+    elif st.session_state.draft_mouse:
+        current_action_str = f"Mouse: {st.session_state.draft_mouse}"
+    else:
+        # Hotkeys
+        keys = []
+        # Add modifiers first
+        modifiers = ["ctrl", "shift", "alt", "cmd"]
+        sel_ext = st.session_state.draft_extended or []
+        sel_basic = st.session_state.draft_basic or []
+
+        sel_mods = [k for k in sel_ext if k in modifiers]
+        sel_other_ext = [k for k in sel_ext if k not in modifiers]
+
+        keys.extend(sel_mods)
+        # Convert display basic chars back to internal (lowercase)
+        keys.extend([BASIC_CHARS_MAP[c] for c in sel_basic])
+        keys.extend(sel_other_ext)
+
+        if keys:
+            current_action_str = "+".join(keys)
+
+    # --- UI Layout ---
     with st.container(border=True):
-        with st.form("edit_button_form"):
-            # Manual Overrides
-            c1, c2 = st.columns(2)
-            with c1:
-                current_label = st.text_input(
-                    "Button Label", value=btn_data.get("label", "")
-                )
-            with c2:
-                current_action_input = st.text_input(
-                    "Action Payload (Auto-filled by selections)",
-                    value=btn_data.get("action", ""),
-                    help="Manually edit this if needed. Selections below will overwrite this.",
-                )
+        c1, c2 = st.columns(2)
+        with c1:
+            st.session_state.draft_label = st.text_input(
+                "Button Label", value=st.session_state.draft_label
+            )
+        with c2:
+            st.text_input(
+                "Current Action",
+                value=current_action_str,
+                disabled=True,
+                help="Automatically updated based on selections below.",
+            )
 
-            # --- Selection Expanders ---
+        # 1. Basic Characters
+        with st.expander("Basic Characters"):
+            st.pills(
+                "Select Characters",
+                BASIC_CHARS_DISPLAY,
+                selection_mode="multi",
+                key="draft_basic",
+                on_change=on_keys_change,
+            )
 
-            # 1. Basic Characters
-            with st.expander("Basic Characters"):
-                selected_basic = st.pills(
-                    "Select Characters",
-                    basic_chars,
-                    selection_mode="multi",
-                    default=def_basic,
-                )
+        # 2. Extended Characters
+        with st.expander("Extended Characters"):
+            st.pills(
+                "Select Special Keys",
+                EXTENDED_CHARS,
+                selection_mode="multi",
+                key="draft_extended",
+                on_change=on_keys_change,
+            )
 
-            # 2. Extended Characters
-            with st.expander("Extended Characters"):
-                selected_extended = st.pills(
-                    "Select Special Keys",
-                    extended_chars,
-                    selection_mode="multi",
-                    default=def_extended,
-                )
-
-            # 3. Functions (Scripts)
-            with st.expander("Functions (Scripts)"):
-                if scripts_list:
-                    selected_script = st.pills(
-                        "Select Script",
-                        scripts_list,
-                        selection_mode="single",
-                        default=def_script,
-                    )
-                else:
-                    st.warning("No scripts found in scripts/ directory")
-                    selected_script = None
-
-            # 4. Media and Audio Control
-            with st.expander("Media & Audio"):
-                selected_media = st.pills(
-                    "Media Controls",
-                    media_keys,
-                    selection_mode="multi",
-                    default=def_media,
-                )
-
-            # 5. Mouse
-            with st.expander("Mouse"):
-                selected_mouse = st.pills(
-                    "Mouse Actions",
-                    mouse_actions,
+        # 3. Functions (Scripts)
+        with st.expander("Functions (Scripts)"):
+            if SCRIPTS_LIST:
+                st.pills(
+                    "Select Script",
+                    SCRIPTS_LIST,
                     selection_mode="single",
-                    default=def_mouse,
+                    key="draft_script",
+                    on_change=on_script_change,
                 )
+            else:
+                st.warning("No scripts found in scripts/ directory")
 
-            # --- Save Logic ---
-            st.write("")
-            submitted = st.form_submit_button("Save", type="primary")
+        # 4. Media and Audio Control
+        with st.expander("Media & Audio"):
+            st.pills(
+                "Media Controls",
+                list(MEDIA_MAP.values()),
+                selection_mode="single",  # Changed to single per requirement
+                key="draft_media",
+                on_change=on_media_change,
+            )
 
-            if submitted:
-                # Determine Action Type and Payload
+        # 5. Mouse
+        with st.expander("Mouse"):
+            st.pills(
+                "Mouse Actions",
+                list(MOUSE_MAP.values()),
+                selection_mode="single",
+                key="draft_mouse",
+                on_change=on_mouse_change,
+            )
+
+        # --- Save / Clear ---
+        st.write("")
+        col_save, col_clear = st.columns([1, 6])
+
+        with col_save:
+            if st.button("Save", type="primary"):
+                # Construct final payload
                 final_type = "hotkey"
-                final_payload = current_action_input
+                final_payload = ""
+                final_label = st.session_state.draft_label
 
-                # Priority: Script > Mouse > Keys (Basic/Extended/Media)
-
-                if selected_script:
+                if st.session_state.draft_script:
                     final_type = "script"
-                    final_payload = selected_script
-                    if not current_label:
-                        current_label = selected_script
-
-                elif selected_mouse:
+                    final_payload = st.session_state.draft_script
+                    if not final_label:
+                        final_label = final_payload
+                elif st.session_state.draft_mouse:
                     final_type = "mouse"
-                    final_payload = selected_mouse
-                    if not current_label:
-                        current_label = selected_mouse.replace("_", " ").title()
-
+                    final_payload = MOUSE_REVERSE[st.session_state.draft_mouse]
+                    if not final_label:
+                        final_label = st.session_state.draft_mouse
+                elif st.session_state.draft_media:
+                    final_type = (
+                        "hotkey"  # Media is handled as hotkey in backend currently?
+                    )
+                    # Check executor.py... Yes, MEDIA keys are in KEY_MAP.
+                    # Wait, backend executor.py has KEY_MAP which includes media keys.
+                    # So type is "hotkey", payload is "volumemute" etc.
+                    final_payload = MEDIA_REVERSE[st.session_state.draft_media]
+                    if not final_label:
+                        final_label = st.session_state.draft_media
                 else:
-                    # Check if any keys selected
-                    all_keys = []
+                    # Hotkeys calculation (duplicated from above, but safe)
+                    keys = []
                     modifiers = ["ctrl", "shift", "alt", "cmd"]
+                    sel_ext = st.session_state.draft_extended or []
+                    sel_basic = st.session_state.draft_basic or []
 
-                    selected_mods = [
-                        k for k in (selected_extended or []) if k in modifiers
-                    ]
-                    other_extended = [
-                        k for k in (selected_extended or []) if k not in modifiers
-                    ]
+                    sel_mods = [k for k in sel_ext if k in modifiers]
+                    sel_other_ext = [k for k in sel_ext if k not in modifiers]
 
-                    all_keys.extend(selected_mods)
-                    if selected_basic:
-                        all_keys.extend(selected_basic)
-                    all_keys.extend(other_extended)
-                    if selected_media:
-                        all_keys.extend(selected_media)
+                    keys.extend(sel_mods)
+                    keys.extend([BASIC_CHARS_MAP[c] for c in sel_basic])
+                    keys.extend(sel_other_ext)
 
-                    if all_keys:
-                        final_type = "hotkey"
-                        final_payload = "+".join(all_keys)
-                        if not current_label:
-                            current_label = final_payload
-                    # If no keys selected, we fall back to final_payload = current_action_input (manual)
+                    if keys:
+                        final_payload = "+".join(keys)
+                        if not final_label:
+                            final_label = final_payload
 
                 # Save
                 if btn_id not in layout["buttons"]:
@@ -365,13 +450,20 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                 layout["buttons"][btn_id] = {
                     "row": r,
                     "col": c,
-                    "label": current_label,
+                    "label": final_label,
                     "type": final_type,
                     "action": final_payload,
                 }
                 config.save_layout(st.session_state.current_layout_name, layout)
                 st.toast("Button Saved!")
                 st.rerun()
+
+        with col_clear:
+            if st.button("Clear Button"):
+                if btn_id in layout["buttons"]:
+                    del layout["buttons"][btn_id]
+                    config.save_layout(st.session_state.current_layout_name, layout)
+                    st.rerun()
 
         # Clear Button (Outside Form)
         if st.button("Clear Button"):
