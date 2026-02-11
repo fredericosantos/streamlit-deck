@@ -545,4 +545,5 @@ if st.session_state.edit_mode and st.session_state.selected_button:
 
 # --- Footer / Info ---
 if st.session_state.edit_mode:
-    st.info(f"Layout: {layout.get('name')} | Size: {rows}x{cols}")
+    layout_name = layout.get("name", "Default")  # Add default value
+    st.info(f"Layout: {layout_name} | Size: {rows}x{cols}")
