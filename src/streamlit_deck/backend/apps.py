@@ -2,10 +2,67 @@ import os
 import sys
 import glob
 import subprocess
-from typing import Dict
+import hashlib
+from PIL import Image
+from io import BytesIO
+from typing import Dict, Optional
 
 
-def get_installed_apps() -> Dict[str, str]:
+def extract_macos_icon(app_path: str, size: tuple = (64, 64)) -> Optional[bytes]:
+    """
+    Extracts icon from a macOS .app bundle and returns it as bytes.
+    """
+    icon_path = os.path.join(app_path, "Contents", "Resources", "AppIcon.icns")
+
+    if not os.path.exists(icon_path):
+        # Try alternative icon names
+        resources_dir = os.path.join(app_path, "Contents", "Resources")
+        for file in os.listdir(resources_dir):
+            if file.endswith(".icns"):
+                icon_path = os.path.join(resources_dir, file)
+                break
+        else:
+            return None
+
+    try:
+        # Open the .icns file with Pillow
+        with Image.open(icon_path) as img:
+            # Convert to PNG and resize
+            img = img.convert("RGBA")
+            img = img.resize(size, Image.Resampling.LANCZOS)
+
+            # Save to bytes
+            buffer = BytesIO()
+            img.save(buffer, format="PNG")
+            return buffer.getvalue()
+    except Exception as e:
+        # print(f"Error extracting icon from {app_path}: {e}")
+        return None
+
+
+def get_cached_icon(app_path: str) -> Optional[bytes]:
+    """Get icon from cache or extract and cache it."""
+    cache_dir = os.path.expanduser("~/.streamlit_deck/cache/icons")
+    os.makedirs(cache_dir, exist_ok=True)
+
+    # Create cache key from app path
+    cache_key = hashlib.md5(app_path.encode()).hexdigest()
+    cache_file = os.path.join(cache_dir, f"{cache_key}.png")
+
+    if os.path.exists(cache_file):
+        with open(cache_file, "rb") as f:
+            return f.read()
+
+    # Extract and cache
+    icon_bytes = extract_macos_icon(app_path)
+    if icon_bytes:
+        with open(cache_file, "wb") as f:
+            f.write(icon_bytes)
+
+    return icon_bytes
+
+
+def get_installed_apps() -> Dict[str, Dict[str, str]]:
     """
     Returns a dictionary of {App Name: Execution Command/Path}
     """
@@ -45,7 +102,7 @@ def get_installed_apps() -> Dict[str, str]:
                             if not part.startswith("%"):
                                 clean_cmd.append(part)
 
-                        apps[name] = " ".join(clean_cmd)
+                        apps[name] = clean_cmd
                 except Exception:
                     continue
 
@@ -60,7 +117,11 @@ def get_installed_apps() -> Dict[str, str]:
                 if item.endswith(".app"):
                     name = item[:-4]  # Remove .app
                     full_path = os.path.join(path, item)
-                    apps[name] = full_path
+
+                    # Extract icon
+                    icon_bytes = get_cached_icon(full_path)
+
+                    apps[name] = {"command": full_path, "icon_bytes": icon_bytes}
 
     return dict(sorted(apps.items()))
 

@@ -4,7 +4,10 @@ from streamlit_deck.backend import config, executor, apps
 
 # Page Config
 st.set_page_config(
-    page_title="Streamlit Deck", layout="wide", initial_sidebar_state="expanded"
+    page_title="Streamlit Deck",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    page_icon=":material/deck:",  # Material Design icon for deck
 )
 
 # Custom CSS for better button styling
@@ -226,7 +229,7 @@ if st.session_state.edit_mode and st.session_state.selected_button:
     SCRIPTS_LIST = config.list_scripts()
     APPS_DICT = apps.get_installed_apps()
     APPS_LIST = list(APPS_DICT.keys())
-    APPS_REVERSE = {v: k for k, v in APPS_DICT.items()}  # Path/Command -> Name
+    # No reverse map needed for apps since we now have richer dict
 
     # --- State Initialization ---
     # Ensure draft variables exist even if we are re-entering this block without a selection change
@@ -398,13 +401,9 @@ if st.session_state.edit_mode and st.session_state.selected_button:
                         final_label = final_payload
                 elif st.session_state.draft_app:
                     final_type = "app"
-                    # Payload is the command/path
-                    if st.session_state.draft_app in APPS_DICT:
-                        final_payload = APPS_DICT[st.session_state.draft_app]
-                    else:
-                        final_payload = (
-                            st.session_state.draft_app
-                        )  # Should not happen usually
+                    # Payload is the command from the rich APPS_DICT
+                    app_data = APPS_DICT.get(st.session_state.draft_app, {})
+                    final_payload = app_data.get("command", st.session_state.draft_app)
 
                     if not final_label:
                         final_label = st.session_state.draft_app
@@ -500,59 +499,27 @@ if st.session_state.edit_mode and st.session_state.selected_button:
         # 4. Applications (New)
         with st.expander("Applications"):
             if APPS_LIST:
-                # Use selectbox for apps as list might be long
-                # We handle syncing with session state manually since selectbox doesn't support 'key' binding same as pills for our custom logic easily?
-                # Actually we can bind key="draft_app" directly
-                # But selectbox returns the value.
+                # Create a 3-column grid for app selection
+                cols = st.columns(3)
+                for i, app_name in enumerate(APPS_LIST):
+                    with cols[i % 3]:
+                        app_data = APPS_DICT[app_name]
 
-                # Using key="draft_app" with on_change works fine for selectbox too
-                # But selectbox UI is different (dropdown).
+                        # Display icon if available
+                        if app_data.get("icon_bytes"):
+                            st.image(app_data["icon_bytes"], width=64)
 
-                # Important: selectbox defaults to first item if value is None.
-                # We need to handle index.
+                        # Use button for selection
+                        button_label = app_name
 
-                app_idx = 0
-                if st.session_state.draft_app in APPS_LIST:
-                    app_idx = APPS_LIST.index(st.session_state.draft_app)
-                elif st.session_state.draft_app is None:
-                    app_idx = None
-
-                # Streamlit selectbox doesn't support 'None' selection easily without a placeholder.
-                # We'll use a placeholder "Select an App..."
-
-                display_apps = ["Select an App..."] + APPS_LIST
-
-                current_app_display = (
-                    st.session_state.draft_app
-                    if st.session_state.draft_app
-                    else "Select an App..."
-                )
-                if current_app_display not in display_apps:
-                    current_app_display = "Select an App..."
-
-                selected_app_display = st.selectbox(
-                    "Launch Application",
-                    display_apps,
-                    index=display_apps.index(current_app_display),
-                    key="draft_app_selection",  # Temporary key
-                    on_change=lambda: None,  # We handle logic after
-                )
-
-                # Manual sync logic because selectbox behavior with 'None' is tricky
-                if selected_app_display != "Select an App...":
-                    if st.session_state.draft_app != selected_app_display:
-                        st.session_state.draft_app = selected_app_display
-                        on_app_change()
-                        st.rerun()  # Force rerun to update other cleared fields visually if needed
-                elif (
-                    selected_app_display == "Select an App..."
-                    and st.session_state.draft_app is not None
-                ):
-                    # User explicitly unselected? Or just default state.
-                    # If we want to allow unselecting, we set draft_app to None
-                    # But only if it was previously set.
-                    pass
-
+                        if st.button(
+                            button_label,
+                            key=f"app_select_{app_name}",
+                            use_container_width=True,
+                        ):
+                            st.session_state.draft_app = app_name
+                            on_app_change()
+                            st.rerun()
             else:
                 st.warning("No applications found.")
 

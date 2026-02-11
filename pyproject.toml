@@ -10,4 +10,5 @@ requires-python = ">=3.13"
 dependencies = [
     "pynput>=1.8.1",
     "streamlit>=1.54.0",
+    "Pillow>=10.0.0",
 ]
