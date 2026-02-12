@@ -8,6 +8,7 @@ import hashlib
 from PIL import Image
 from io import BytesIO
 from typing import Dict
+import plistlib
 
 # macOS specific imports
 try:
@@ -240,3 +241,49 @@ class MacOSApps(BaseApps):
             return f"Application '{app_name}' not found"
         except Exception as e:
             return f"Error switching to app: {e}"
+
+    def get_docked_apps(self) -> Dict[str, Dict[str, any]]:
+        """
+        Get docked apps and folders from macOS Dock.
+        Returns dict of {name: {'command': str, 'icon_bytes': bytes, 'type': str}}
+        """
+        plist_path = os.path.expanduser("~/Library/Preferences/com.apple.dock.plist")
+        docked = {}
+
+        try:
+            with open(plist_path, "rb") as f:
+                plist_data = plistlib.load(f)
+        except Exception:
+            return docked
+
+        # Parse persistent-apps
+        for item in plist_data.get("persistent-apps", []):
+            tile_data = item.get("tile-data", {})
+            file_data = tile_data.get("file-data", {})
+            url = file_data.get("_CFURLStringClassic", "")
+            if url.startswith("file://"):
+                path = url[7:]  # remove file://
+                label = tile_data.get(
+                    "file-label", os.path.basename(path).replace(".app", "")
+                )
+                icon_bytes = (
+                    self.get_cached_icon(path) if path.endswith(".app") else None
+                )
+                docked[label] = {
+                    "command": path,
+                    "icon_bytes": icon_bytes,
+                    "type": "app",
+                }
+
+        # Parse persistent-others (folders, etc.)
+        for item in plist_data.get("persistent-others", []):
+            tile_data = item.get("tile-data", {})
+            file_data = tile_data.get("file-data", {})
+            url = file_data.get("_CFURLStringClassic", "")
+            if url.startswith("file://"):
+                path = url[7:]
+                label = tile_data.get("file-label", os.path.basename(path))
+                # For folders, no icon for now
+                docked[label] = {"command": path, "icon_bytes": None, "type": "folder"}
+
+        return dict(sorted(docked.items()))

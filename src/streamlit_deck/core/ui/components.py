@@ -21,8 +21,8 @@ def render_icon_button(icon_bytes: bytes, label: str, key: str, **kwargs) -> boo
     """
     # Create mini-row within each grid cell: icon + button label
     cell_cols = st.columns(
-        [1, 2], gap="none"
-    )  # Icon column wider, no gap for closer spacing
+        [1, 2], gap="xxsmall"
+    )  # Icon column wider, minimal gap for closer spacing
 
     with cell_cols[0]:
         # Display icon in first mini-column

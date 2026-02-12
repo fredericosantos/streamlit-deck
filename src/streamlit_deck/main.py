@@ -5,6 +5,7 @@ from streamlit_deck.platform import get_apps
 from streamlit_deck.core.ui.sidebar import render_sidebar
 from streamlit_deck.core.ui.grid import render_grid
 from streamlit_deck.core.ui.windows import render_open_windows
+from streamlit_deck.core.ui.dock_viewer import render_dock_viewer
 
 st.set_page_config(
     page_title="Streamlit Deck",
@@ -79,3 +80,6 @@ if st.session_state.edit_mode:
 
 # --- Open Windows ---
 render_open_windows(apps_handler)
+
+# --- Dock Viewer ---
+render_dock_viewer(apps_handler)

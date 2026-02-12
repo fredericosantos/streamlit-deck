@@ -3,7 +3,7 @@ Abstract base interface for OS-specific app detection and launching.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, Any
 
 
 class BaseApps(ABC):
@@ -28,3 +28,7 @@ class BaseApps(ABC):
     def switch_to_app(self, app_name: str) -> str:
         """Switch to an app by name. Default no-op for non-macOS."""
         return f"Switch to app not supported on {__import__('sys').platform}"
+
+    def get_docked_apps(self) -> Dict[str, Dict[str, Any]]:
+        """Get docked apps/folders. Default empty for non-macOS."""
+        return {}
