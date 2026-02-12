@@ -9,6 +9,7 @@ from PIL import Image
 from io import BytesIO
 from typing import Dict
 import plistlib
+import urllib.parse
 
 # macOS specific imports
 try:
@@ -266,9 +267,9 @@ class MacOSApps(BaseApps):
         for item in plist_data.get("persistent-apps", []):
             tile_data = item.get("tile-data", {})
             file_data = tile_data.get("file-data", {})
-            url = file_data.get("_CFURLStringClassic", "")
+            url = file_data.get("_CFURLString", "")
             if url.startswith("file://"):
-                path = url[7:]  # remove file://
+                path = urllib.parse.unquote(url[7:])  # remove file:// and unquote
                 label = tile_data.get(
                     "file-label", os.path.basename(path).replace(".app", "")
                 )
@@ -285,35 +286,20 @@ class MacOSApps(BaseApps):
         for item in plist_data.get("persistent-others", []):
             tile_data = item.get("tile-data", {})
             file_data = tile_data.get("file-data", {})
-            url = file_data.get("_CFURLStringClassic", "")
+            url = file_data.get("_CFURLString", "")
             if url.startswith("file://"):
-                path = url[7:]
+                path = urllib.parse.unquote(url[7:])
                 label = tile_data.get("file-label", os.path.basename(path))
                 # For folders, no icon for now
                 docked[label] = {"command": path, "icon_bytes": None, "type": "folder"}
 
         # Debug if empty
         if not docked:
-            debug_info = f"Plist loaded, but no items. persistent-apps: {len(plist_data.get('persistent-apps', []))}, persistent-others: {len(plist_data.get('persistent-others', []))}\n"
-            if plist_data.get("persistent-apps"):
-                first_item = plist_data["persistent-apps"][0]
-                tile_data = first_item.get("tile-data", {})
-                file_data = tile_data.get("file-data", {})
-                debug_info += f"First item tile-data keys: {list(tile_data.keys())}\n"
-                debug_info += f"First item file-data keys: {list(file_data.keys())}\n"
-                debug_info += f"First item file-data: {file_data}"
-            urls = []
-            for item in plist_data.get("persistent-apps", [])[:5]:  # first 5
-                tile_data = item.get("tile-data", {})
-                file_data = tile_data.get("file-data", {})
-                url = file_data.get("_CFURLStringClassic", "")
-                urls.append(url)
-            debug_info += f"Sample URLs: {urls}"
             docked["_debug_empty"] = {
                 "command": "",
                 "icon_bytes": None,
                 "type": "debug",
-                "data": debug_info,
+                "data": f"Plist loaded, but no items. persistent-apps: {len(plist_data.get('persistent-apps', []))}, persistent-others: {len(plist_data.get('persistent-others', []))}",
             }
 
         return dict(sorted(docked.items()))
