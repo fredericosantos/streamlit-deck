@@ -26,7 +26,7 @@ def render_icon_button(icon_bytes: bytes, label: str, key: str, **kwargs) -> boo
 
     with cell_cols[0]:
         # Display icon in first mini-column
-        display_icon_in_column(icon_bytes, size=40)
+        display_icon_in_column(icon_bytes, size=60)
 
     with cell_cols[1]:
         return st.button(label, key=key, width="stretch", **kwargs)

@@ -20,8 +20,8 @@ def render_dock_viewer(apps_handler):
     docked_items = apps_handler.get_docked_apps()
 
     if docked_items:
-        # Display items in a single row with dynamic columns
-        num_cols = len(docked_items)
+        # Display items in a single row with up to 8 columns
+        num_cols = min(8, len(docked_items))
         items_list = list(docked_items.items())
         item_rows = 1  # One row only
 

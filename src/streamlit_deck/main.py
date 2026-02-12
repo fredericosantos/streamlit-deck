@@ -19,8 +19,8 @@ st.markdown(
     """
 <style>
     .stButton button {
-        height: 40px !important;  /* Reduced from 60px */
-        font-size: 14px !important;  /* Slightly smaller font */
+        height: 60px !important;  /* Reduced from 100px to 60px */
+        font-size: 18px !important;  /* Slightly smaller font */
         font-weight: bold;
     }
     /* Center icons vertically in their containers */
@@ -28,7 +28,7 @@ st.markdown(
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        height: 40px !important;  /* Match button height */
+        height: 60px !important;  /* Match button height */
     }
 </style>
 """,
