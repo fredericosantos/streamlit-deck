@@ -1,97 +1,22 @@
 import streamlit as st
-import string
 import sys
 from ..backend.config import list_scripts
+from ...platform import get_mappings
+from ...shared.app_utils import build_apps_reverse_map
+from ...shared.state_utils import clear_draft_state, init_draft_state
 
 
 def render_editor(layout, r, c, btn_id, btn_data, APPS_DICT):
+    # Get OS-specific mappings
+    mappings = get_mappings()
+
     # --- Mappings & Constants ---
-    BASIC_CHARS_DISPLAY = (
-        [c.upper() for c in string.ascii_lowercase]
-        + list(string.digits)
-        + list("!@#$%^&*()[]{}|;:,.<>?/")
-    )
-    BASIC_CHARS_MAP = {c.upper(): c for c in string.ascii_lowercase}
-    BASIC_CHARS_MAP.update({d: d for d in string.digits})  # Digits map to themselves
-    BASIC_CHARS_MAP.update(
-        {p: p for p in "!@#$%^&*()[]{}|;:,.<>?/"}
-    )  # Punctuation maps to itself
+    BASIC_CHARS_DISPLAY = mappings.basic_chars_display
+    BASIC_CHARS_MAP = mappings.basic_chars_map
+    EXTENDED_CHARS = mappings.extended_chars
+    EXTENDED_CHAR_MAP = mappings.extended_char_map
 
-    # OS-specific extended characters
-    if st.session_state.os_mode == "macos":
-        EXTENDED_CHARS = [
-            "⌃ ctrl",
-            "⇧ shift",
-            "⌥ alt",
-            "⌘ cmd",
-            "↵ enter",
-            "⎋ esc",
-            "⇥ tab",
-            "␣ space",
-            "⌫ backspace",
-            "⌦ delete",
-            "↑ up",
-            "↓ down",
-            "← left",
-            "→ right",
-            "⇪ capslock",
-        ] + [f"F{i}" for i in range(1, 13)]
-
-        EXTENDED_CHAR_MAP = {
-            "⌃ ctrl": "ctrl",
-            "⇧ shift": "shift",
-            "⌥ alt": "alt",
-            "⌘ cmd": "cmd",
-            "↵ enter": "enter",
-            "⎋ esc": "esc",
-            "⇥ tab": "tab",
-            "␣ space": "space",
-            "⌫ backspace": "backspace",
-            "⌦ delete": "delete",
-            "↑ up": "up",
-            "↓ down": "down",
-            "← left": "left",
-            "→ right": "right",
-            "⇪ capslock": "capslock",
-        }
-    else:  # linux
-        EXTENDED_CHARS = [
-            "Ctrl",
-            "Shift",
-            "Alt",
-            "Super",
-            "Enter",
-            "Esc",
-            "Tab",
-            "Space",
-            "Backspace",
-            "Delete",
-            "Up",
-            "Down",
-            "Left",
-            "Right",
-            "CapsLock",
-        ] + [f"F{i}" for i in range(1, 13)]
-
-        EXTENDED_CHAR_MAP = {
-            "Ctrl": "ctrl",
-            "Shift": "shift",
-            "Alt": "alt",
-            "Super": "cmd",  # Maps to cmd in backend KEY_MAP
-            "Enter": "enter",
-            "Esc": "esc",
-            "Tab": "tab",
-            "Space": "space",
-            "Backspace": "backspace",
-            "Delete": "delete",
-            "Up": "up",
-            "↓ down": "down",
-            "← left": "left",
-            "→ right": "right",
-            "CapsLock": "capslock",
-        }
-
-    # Add function keys to map
+    # Add function keys to map (already included, but ensure)
     for i in range(1, 13):
         EXTENDED_CHAR_MAP[f"F{i}"] = f"f{i}"
 
@@ -119,28 +44,10 @@ def render_editor(layout, r, c, btn_id, btn_data, APPS_DICT):
     SCRIPTS_LIST = list_scripts()
     APPS_LIST = list(APPS_DICT.keys())
     # Create reverse map for apps (command to name)
-    APPS_REVERSE = {}
-    for app_name, app_data in APPS_DICT.items():
-        if isinstance(app_data, dict) and "command" in app_data:
-            APPS_REVERSE[app_data["command"]] = app_name
+    APPS_REVERSE = build_apps_reverse_map(APPS_DICT)
 
     # --- State Initialization ---
-    # Ensure draft variables exist even if we are re-entering this block without a selection change
-    # (e.g. after a code reload or if they were somehow cleared)
-    if "draft_basic" not in st.session_state:
-        st.session_state.draft_basic = []
-    if "draft_extended" not in st.session_state:
-        st.session_state.draft_extended = []
-    if "draft_script" not in st.session_state:
-        st.session_state.draft_script = None
-    if "draft_media" not in st.session_state:
-        st.session_state.draft_media = None
-    if "draft_mouse" not in st.session_state:
-        st.session_state.draft_mouse = None
-    if "draft_app" not in st.session_state:
-        st.session_state.draft_app = None
-    if "draft_label" not in st.session_state:
-        st.session_state.draft_label = btn_data.get("label", "")
+    init_draft_state()
 
     # OS Mode default
     if "os_mode" not in st.session_state:
@@ -197,10 +104,7 @@ def render_editor(layout, r, c, btn_id, btn_data, APPS_DICT):
     # --- Callbacks ---
     def on_keys_change():
         # Clear other selections when keys change
-        st.session_state.draft_script = None
-        st.session_state.draft_media = None
-        st.session_state.draft_mouse = None
-        st.session_state.draft_app = None
+        clear_draft_state()
         update_label_from_action()
 
     def on_script_change():

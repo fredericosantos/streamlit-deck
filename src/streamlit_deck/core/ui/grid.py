@@ -3,15 +3,18 @@ Grid rendering and interaction for Streamlit Deck.
 """
 
 import streamlit as st
-from ..shared.ui_utils import display_icon_in_column
+from ...shared.ui_utils import display_icon_in_column
+from ...shared.app_utils import build_apps_reverse_map
 
 
 def render_grid(layout, edit_mode, selected_button, current_layout_name, APPS_DICT):
     rows = layout.get("rows", 2)
     cols = layout.get("cols", 2)
 
+    apps_reverse_map = build_apps_reverse_map(APPS_DICT)
+
     # Grid Layout
-    with st.container(border=True):
+    with st.container(border=False):
         for r in range(rows):
             columns = st.columns(cols)
             for c in range(cols):
@@ -43,16 +46,7 @@ def render_grid(layout, edit_mode, selected_button, current_layout_name, APPS_DI
                         # Prepare icon for app buttons
                         icon_bytes = None
                         if btn_type == "app" and action:
-                            app_name = None
-                            # Find app name from command using APPS_DICT
-                            for name, data in APPS_DICT.items():
-                                if (
-                                    isinstance(data, dict)
-                                    and data.get("command") == action
-                                ):
-                                    app_name = name
-                                    break
-
+                            app_name = apps_reverse_map.get(action)
                             if app_name and APPS_DICT[app_name].get("icon_bytes"):
                                 icon_bytes = APPS_DICT[app_name]["icon_bytes"]
 
