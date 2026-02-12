@@ -295,6 +295,13 @@ class MacOSApps(BaseApps):
         # Debug if empty
         if not docked:
             debug_info = f"Plist loaded, but no items. persistent-apps: {len(plist_data.get('persistent-apps', []))}, persistent-others: {len(plist_data.get('persistent-others', []))}\n"
+            if plist_data.get("persistent-apps"):
+                first_item = plist_data["persistent-apps"][0]
+                tile_data = first_item.get("tile-data", {})
+                file_data = tile_data.get("file-data", {})
+                debug_info += f"First item tile-data keys: {list(tile_data.keys())}\n"
+                debug_info += f"First item file-data keys: {list(file_data.keys())}\n"
+                debug_info += f"First item file-data: {file_data}"
             urls = []
             for item in plist_data.get("persistent-apps", [])[:5]:  # first 5
                 tile_data = item.get("tile-data", {})
