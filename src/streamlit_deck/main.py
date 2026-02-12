@@ -282,6 +282,51 @@ if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
         unsafe_allow_html=True,
     )
 
+# --- Open Windows Container ---
+st.subheader("Open Windows")
+windows = apps.get_running_windows()
+
+if windows:
+    # Display windows in a 4-column grid
+    num_cols = 4
+    window_rows = (len(windows) + num_cols - 1) // num_cols  # Ceiling division
+
+    for window_row in range(window_rows):
+        window_cols = st.columns(num_cols)
+        for col_idx in range(num_cols):
+            window_idx = window_row * num_cols + col_idx
+            if window_idx < len(windows):
+                window_info = windows[window_idx]
+
+                with window_cols[col_idx]:
+                    # Create mini-row: icon + button
+                    cell_cols = st.columns([1, 3], gap="small")
+
+                    with cell_cols[0]:
+                        # Display app icon
+                        icon_bytes = window_info.get("icon_bytes")
+                        display_icon_in_column(
+                            icon_bytes, size=32
+                        )  # Smaller icons for windows
+
+                    with cell_cols[1]:
+                        window_title = window_info["title"]
+                        app_name = window_info["app_name"]
+                        # Truncate long titles
+                        if len(window_title) > 15:
+                            window_title = window_title[:12] + "..."
+
+                        if st.button(
+                            window_title,
+                            key=f"window_{window_idx}",
+                            use_container_width=True,
+                            help=f"Switch to {app_name}",
+                        ):
+                            msg = apps.switch_to_app(app_name)
+                            st.toast(msg)
+else:
+    st.info("No open windows detected. This feature is macOS-only.")
+
 # --- Editor Interface (Below Grid) ---
 if st.session_state.edit_mode and st.session_state.selected_button:
     import string

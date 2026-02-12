@@ -7,6 +7,15 @@ from PIL import Image
 from io import BytesIO
 from typing import Dict, Optional
 
+# macOS specific imports
+if sys.platform == "darwin":
+    from AppKit import NSWorkspace
+    from Quartz import (
+        CGWindowListCopyWindowInfo,
+        kCGWindowListOptionOnScreenOnly,
+        kCGNullWindowID,
+    )
+
 
 def extract_macos_icon(app_path: str, size: tuple = (64, 64)) -> Optional[bytes]:
     """
@@ -188,3 +197,88 @@ def launch_app(command: str) -> str:
             return f"Launched command: {command}"
     except Exception as e:
         return f"Error launching app: {e}"
+
+
+def get_running_windows() -> list:
+    """
+    Get list of open windows on macOS with app info and icons.
+    Returns list of dicts with 'title', 'app_name', 'icon_bytes', 'pid'
+    """
+    if sys.platform != "darwin":
+        return []
+
+    windows_info = []
+
+    try:
+        # Get running applications with AppKit
+        workspace = NSWorkspace.sharedWorkspace()
+        running_apps = workspace.runningApplications()
+
+        # Create app info dict for quick lookup
+        app_info = {}
+        for app in running_apps:
+            pid = app.processIdentifier()
+            name = app.localizedName()
+            if name:
+                # Get icon from NSRunningApplication
+                icon = app.icon()
+                icon_bytes = None
+                if icon:
+                    # Convert NSImage to bytes (PNG)
+                    icon.setSize_((64, 64))
+                    tiff_data = icon.TIFFRepresentation()
+                    if tiff_data:
+                        # Convert TIFF to PNG
+                        tiff_buffer = BytesIO(tiff_data)
+                        img = Image.open(tiff_buffer)
+                        png_buffer = BytesIO()
+                        img.save(png_buffer, format="PNG")
+                        icon_bytes = png_buffer.getvalue()
+
+                app_info[pid] = {"name": name, "icon_bytes": icon_bytes}
+
+        # Get window info with Quartz
+        windows = CGWindowListCopyWindowInfo(
+            kCGWindowListOptionOnScreenOnly, kCGNullWindowID
+        )
+
+        for window in windows:
+            title = window.get("kCGWindowName")
+            pid = window.get("kCGWindowOwnerPID")
+
+            if title and pid and pid in app_info:
+                windows_info.append(
+                    {
+                        "title": title,
+                        "app_name": app_info[pid]["name"],
+                        "icon_bytes": app_info[pid]["icon_bytes"],
+                        "pid": pid,
+                    }
+                )
+
+    except Exception:
+        # Gracefully handle any API errors
+        pass
+
+    return windows_info
+
+
+def switch_to_app(app_name: str) -> str:
+    """
+    Switch to the specified application on macOS.
+    """
+    if sys.platform != "darwin":
+        return "Window switching only supported on macOS"
+
+    try:
+        # Use AppleScript to activate the app
+        script = f'tell application "{app_name}" to activate'
+        result = subprocess.run(
+            ["osascript", "-e", script], capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            return f"Switched to {app_name}"
+        else:
+            return f"Error switching to {app_name}: {result.stderr}"
+    except Exception as e:
+        return f"Error switching to app: {e}"
