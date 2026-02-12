@@ -43,8 +43,8 @@ def render_dock_viewer(apps_handler):
                             icon_bytes = item_data.get("icon_bytes")
                             command = item_data.get("command")
 
-                            # Use render_icon_button with empty label for icon-only display
-                            if render_icon_button(icon_bytes, "", f"dock_{item_idx}"):
+                            # Use render_icon_button with name as label to ensure visibility
+                            if render_icon_button(icon_bytes, name, f"dock_{item_idx}"):
                                 # Launch the item on click
                                 msg = apps_handler.launch_app(command)
                                 st.toast(msg)
