@@ -261,7 +261,9 @@ class MacOSApps(BaseApps):
         except Exception as e:
             return f"Error switching to app: {e}"
 
-    def get_docked_apps(self) -> Dict[str, Dict[str, any]]:
+    def get_docked_apps(
+        self, installed_apps: Dict[str, Dict[str, str]] = None
+    ) -> Dict[str, Dict[str, any]]:
         """
         Get docked apps and folders from macOS Dock.
         Returns dict of {name: {'command': str, 'icon_bytes': bytes, 'type': str}}
@@ -292,8 +294,10 @@ class MacOSApps(BaseApps):
                     "file-label", os.path.basename(path).replace(".app", "")
                 )
                 icon_bytes = (
-                    self.get_cached_icon(path) if path.endswith(".app") else None
-                )
+                    installed_apps.get(label, {}).get("icon_bytes")
+                    if installed_apps
+                    else self.get_cached_icon(path)
+                ) or _get_default_icon()
                 docked[label] = {
                     "command": path,
                     "icon_bytes": icon_bytes,

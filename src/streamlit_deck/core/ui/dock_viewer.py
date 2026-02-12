@@ -7,7 +7,7 @@ import streamlit as st
 from ...core.ui.components import render_icon_button
 
 
-def render_dock_viewer(apps_handler):
+def render_dock_viewer(apps_handler, installed_apps=None):
     """
     Render the dock viewer section, showing docked apps and folders.
     Only displays on macOS.
@@ -17,7 +17,7 @@ def render_dock_viewer(apps_handler):
 
     st.subheader("Dock")
 
-    docked_items = apps_handler.get_docked_apps()
+    docked_items = apps_handler.get_docked_apps(installed_apps)
 
     if docked_items:
         # Display items in a single row with up to 8 columns

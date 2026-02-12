@@ -82,4 +82,4 @@ if st.session_state.edit_mode:
 render_open_windows(apps_handler)
 
 # --- Dock Viewer ---
-render_dock_viewer(apps_handler)
+render_dock_viewer(apps_handler, APPS_DICT)
