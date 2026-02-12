@@ -9,8 +9,7 @@ from typing import Dict, Optional
 
 # macOS specific imports
 if sys.platform == "darwin":
-    from AppKit import NSWorkspace, NSBitmapImageRep, NSPNGFileType
-    from Foundation import NSRect
+    from AppKit import NSWorkspace
     from Quartz import (
         CGWindowListCopyWindowInfo,
         kCGWindowListOptionOnScreenOnly,
@@ -226,28 +225,8 @@ def get_running_windows() -> dict:
             name = app.localizedName()
             if name:
                 debug_messages.append(f"Processing app: {name} (PID: {pid})")
-                # Get icon from NSRunningApplication
-                icon = app.icon()
-                icon_bytes = None
-                if icon:
-                    debug_messages.append(f"  Got icon for {name}")
-                    # Set icon size
-                    icon.setSize_((64, 64))
-                    # Get bitmap representation
-                    bitmap = icon.bestRepresentationForRect_context_hints_(
-                        NSRect((0, 0, 64, 64)), None, None
-                    )
-                    if bitmap and isinstance(bitmap, NSBitmapImageRep):
-                        png_data = bitmap.representationUsingType_properties_(
-                            NSPNGFileType, None
-                        )
-                        if png_data:
-                            icon_bytes = bytes(png_data)
-                            debug_messages.append(
-                                f"  Converted icon to PNG ({len(icon_bytes)} bytes)"
-                            )
-
-                app_info[pid] = {"name": name, "icon_bytes": icon_bytes}
+                # Skip icon for now to simplify
+                app_info[pid] = {"name": name, "icon_bytes": None}
 
         debug_messages.append("Getting window info with Quartz...")
         # Get window info with Quartz

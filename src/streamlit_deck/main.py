@@ -301,31 +301,20 @@ if windows:
                 window_info = windows[window_idx]
 
                 with window_cols[col_idx]:
-                    # Create mini-row: icon + button
-                    cell_cols = st.columns([1, 3], gap="small")
+                    window_title = window_info["title"]
+                    app_name = window_info["app_name"]
+                    # Truncate long titles
+                    if len(window_title) > 15:
+                        window_title = window_title[:12] + "..."
 
-                    with cell_cols[0]:
-                        # Display app icon
-                        icon_bytes = window_info.get("icon_bytes")
-                        display_icon_in_column(
-                            icon_bytes, size=32
-                        )  # Smaller icons for windows
-
-                    with cell_cols[1]:
-                        window_title = window_info["title"]
-                        app_name = window_info["app_name"]
-                        # Truncate long titles
-                        if len(window_title) > 15:
-                            window_title = window_title[:12] + "..."
-
-                        if st.button(
-                            window_title,
-                            key=f"window_{window_idx}",
-                            use_container_width=True,
-                            help=f"Switch to {app_name}",
-                        ):
-                            msg = apps.switch_to_app(app_name)
-                            st.toast(msg)
+                    if st.button(
+                        window_title,
+                        key=f"window_{window_idx}",
+                        use_container_width=True,
+                        help=f"Switch to {app_name}",
+                    ):
+                        msg = apps.switch_to_app(app_name)
+                        st.toast(msg)
 else:
     st.info("No open windows detected. This feature is macOS-only.")
     if debug:
