@@ -262,11 +262,14 @@ class MacOSApps(BaseApps):
             return f"Error switching to app: {e}"
 
     def get_docked_apps(
-        self, installed_apps: Dict[str, Dict[str, str]] = None
+        self, installed_apps: Dict[str, Dict] = None
     ) -> Dict[str, Dict[str, any]]:
         """
         Get docked apps and folders from macOS Dock.
         Returns dict of {name: {'command': str, 'icon_bytes': bytes, 'type': str}}
+
+        Args:
+            installed_apps: Optional dict of installed apps to reuse their icons
         """
         plist_path = os.path.expanduser("~/Library/Preferences/com.apple.dock.plist")
         docked = {}
@@ -293,11 +296,13 @@ class MacOSApps(BaseApps):
                 label = tile_data.get(
                     "file-label", os.path.basename(path).replace(".app", "")
                 )
-                icon_bytes = (
-                    installed_apps.get(label, {}).get("icon_bytes")
-                    if installed_apps
-                    else self.get_cached_icon(path)
-                ) or _get_default_icon()
+                # Reuse icon from installed_apps if available, otherwise extract
+                icon_bytes = None
+                if installed_apps and label in installed_apps:
+                    icon_bytes = installed_apps[label].get("icon_bytes")
+                elif path.endswith(".app"):
+                    icon_bytes = self.get_cached_icon(path)
+
                 docked[label] = {
                     "command": path,
                     "icon_bytes": icon_bytes,

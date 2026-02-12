@@ -11,6 +11,10 @@ def render_dock_viewer(apps_handler, installed_apps=None):
     """
     Render the dock viewer section, showing docked apps and folders.
     Only displays on macOS.
+
+    Args:
+        apps_handler: The apps handler instance
+        installed_apps: Optional dict of installed apps to reuse their icons
     """
     if sys.platform != "darwin":
         return
