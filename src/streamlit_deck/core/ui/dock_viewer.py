@@ -11,7 +11,7 @@ from st_click_detector import click_detector
 def render_dock_viewer(apps_handler, installed_apps=None):
     """
     Render the dock viewer section, showing docked apps and folders.
-    Only displays on macOS.
+    Only displays on macOS. Fixed at the bottom of the page.
 
     Args:
         apps_handler: The apps handler instance
@@ -20,7 +20,28 @@ def render_dock_viewer(apps_handler, installed_apps=None):
     if sys.platform != "darwin":
         return
 
-    st.subheader("Dock")
+    # Add CSS for fixed dock at bottom
+    st.markdown(
+        """
+    <style>
+    .dock-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--background-color);
+        padding: 10px;
+        border-top: 1px solid var(--secondary-background-color);
+        z-index: 1000;
+    }
+    </style>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    with st.container():
+        st.markdown('<div class="dock-footer">', unsafe_allow_html=True)
+        st.subheader("Dock")
 
     docked_items = apps_handler.get_docked_apps(installed_apps)
 
@@ -93,3 +114,5 @@ def render_dock_viewer(apps_handler, installed_apps=None):
                 pass
     else:
         st.info("No docked items found.")
+
+    st.markdown("</div>", unsafe_allow_html=True)

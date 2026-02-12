@@ -14,13 +14,13 @@ def render_open_windows(apps_handler):
     <style>
     .open-windows-footer {
         position: fixed;
-        bottom: 0;
+        bottom: 100px;  /* Above the dock */
         left: 0;
         right: 0;
         background: var(--background-color);
         padding: 10px;
         border-top: 1px solid var(--secondary-background-color);
-        z-index: 1000;
+        z-index: 999;
     }
     </style>
     """,
