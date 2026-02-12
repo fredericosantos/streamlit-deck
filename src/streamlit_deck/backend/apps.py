@@ -159,7 +159,10 @@ def get_installed_apps() -> Dict[str, Dict[str, str]]:
                                     except Exception:
                                         continue
 
-                        apps[name] = {"command": clean_cmd, "icon_bytes": icon_bytes}
+                        apps[name] = {
+                            "command": " ".join(clean_cmd),
+                            "icon_bytes": icon_bytes,
+                        }
                 except Exception:
                     continue
 
