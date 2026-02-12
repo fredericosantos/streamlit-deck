@@ -284,9 +284,22 @@ if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
 
 # --- Open Windows Container ---
 st.subheader("Open Windows")
-windows_data = apps.get_open_windows()
-windows = windows_data["windows"]
-debug = windows_data["debug"]
+apps_data = apps.get_apps_with_windows()
+apps_list = apps_data["apps"]
+debug = apps_data["debug"]
+
+# Flatten windows from all apps
+windows = []
+for app in apps_list:
+    for window in app["windows"]:
+        windows.append(
+            {
+                "title": window["title"],
+                "app_name": app["name"],
+                "is_active": app["is_active"],
+                "bundle_id": app["bundle_id"],
+            }
+        )
 
 if windows:
     # Display windows in a 4-column grid
@@ -303,16 +316,20 @@ if windows:
                 with window_cols[col_idx]:
                     window_title = window_info["title"]
                     app_name = window_info["app_name"]
+                    is_active = window_info["is_active"]
+
+                    # Add active indicator
+                    button_label = f"{window_title} {'●' if is_active else ''}"
 
                     # Truncate long titles
-                    if len(window_title) > 15:
-                        window_title = window_title[:12] + "..."
+                    if len(button_label) > 15:
+                        button_label = button_label[:12] + "..."
 
                     if st.button(
-                        window_title,
+                        button_label,
                         key=f"window_{window_idx}",
                         use_container_width=True,
-                        help=f"App: {app_name}",
+                        help=f"App: {app_name} | Bundle: {window_info['bundle_id']}",
                     ):
                         msg = apps.switch_to_app(app_name)
                         st.toast(msg)

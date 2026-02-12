@@ -9,10 +9,11 @@ from typing import Dict, Optional
 
 # macOS specific imports
 if sys.platform == "darwin":
-    from AppKit import NSWorkspace
+    from AppKit import NSWorkspace, NSApplicationActivationPolicyRegular
     from Quartz import (
         CGWindowListCopyWindowInfo,
         kCGWindowListOptionOnScreenOnly,
+        kCGWindowListExcludeDesktopElements,
         kCGNullWindowID,
     )
 
@@ -199,50 +200,117 @@ def launch_app(command: str) -> str:
         return f"Error launching app: {e}"
 
 
-def get_open_windows() -> dict:
+def get_apps_with_windows() -> dict:
     """
-    Get list of open windows on macOS using Quartz.
-    Returns dict with 'windows' list and 'debug' string
+    Get applications with open windows, similar to Cmd+Tab app switcher.
+    Filters out system utilities, notification center, and background processes.
+    Returns dict with 'apps' list and 'debug' string
     """
     debug_messages = []
 
     if sys.platform != "darwin":
-        return {"windows": [], "debug": "Not macOS"}
-
-    windows_info = []
+        return {"apps": [], "debug": "Not macOS"}
 
     try:
-        debug_messages.append("Getting window list with Quartz...")
-        # Get window list
-        window_list = CGWindowListCopyWindowInfo(
-            kCGWindowListOptionOnScreenOnly, kCGNullWindowID
-        )
-        debug_messages.append(f"Found {len(window_list)} windows")
+        workspace = NSWorkspace.sharedWorkspace()
+
+        # Get all running applications with regular activation policy
+        # This filters out background processes and system utilities
+        running_apps = workspace.runningApplications()
+        regular_apps = {}
+
+        for app in running_apps:
+            # Only include apps that appear in Dock (regular activation policy)
+            if app.activationPolicy() == NSApplicationActivationPolicyRegular:
+                app_name = app.localizedName()
+                bundle_id = app.bundleIdentifier()
+                pid = app.processIdentifier()
+
+                if app_name:  # Only if has name
+                    regular_apps[pid] = {
+                        "name": app_name,
+                        "bundle_id": bundle_id,
+                        "pid": pid,
+                        "is_active": app.isActive(),
+                    }
+                    debug_messages.append(
+                        f"Regular app: {app_name} (PID: {pid}, Active: {app.isActive()})"
+                    )
+
+        debug_messages.append(f"Found {len(regular_apps)} regular apps")
+
+        # Get window list - exclude desktop elements and only get on-screen windows
+        options = kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements
+        window_list = CGWindowListCopyWindowInfo(options, kCGNullWindowID)
+        debug_messages.append(f"Found {len(window_list)} windows from Quartz")
+
+        # Track which apps have actual windows
+        apps_with_windows = {}
 
         for window in window_list:
-            owner_name = window.get("kCGWindowOwnerName")
-            window_name = window.get("kCGWindowName", "N/A")
-            bounds = window.get("kCGWindowBounds")
+            owner_pid = window.get("kCGWindowOwnerPID")
+            window_layer = window.get("kCGWindowLayer", 0)
+            window_name = window.get("kCGWindowName", "")
+            window_bounds = window.get("kCGWindowBounds", {})
 
-            if owner_name:
+            # Only consider windows in layer 0 (normal application windows)
+            # Skip windows without meaningful dimensions
+            if window_layer != 0:
+                continue
+
+            width = window_bounds.get("Width", 0)
+            height = window_bounds.get("Height", 0)
+
+            # Filter out tiny windows (often helper windows or popups)
+            if width < 50 or height < 50:
                 debug_messages.append(
-                    f"Window: {window_name}, App: {owner_name}, Bounds: {bounds}"
+                    f"Skipped tiny window: {window_name} ({width}x{height})"
                 )
-                windows_info.append(
+                continue
+
+            # Check if this window belongs to a regular app
+            if owner_pid in regular_apps:
+                app_info = regular_apps[owner_pid]
+                debug_messages.append(
+                    f"Window: {window_name} ({width}x{height}) from {app_info['name']}"
+                )
+
+                # Add app to results if not already there
+                if owner_pid not in apps_with_windows:
+                    apps_with_windows[owner_pid] = {
+                        "name": app_info["name"],
+                        "bundle_id": app_info["bundle_id"],
+                        "pid": owner_pid,
+                        "is_active": app_info["is_active"],
+                        "windows": [],
+                    }
+
+                # Add window info
+                apps_with_windows[owner_pid]["windows"].append(
                     {
-                        "title": window_name,
-                        "app_name": owner_name,
-                        "bounds": bounds,
+                        "title": window_name if window_name else "<untitled>",
+                        "width": width,
+                        "height": height,
+                        "x": window_bounds.get("X", 0),
+                        "y": window_bounds.get("Y", 0),
                     }
                 )
 
+        # Sort by active status (active apps first), then by name
+        sorted_apps = sorted(
+            apps_with_windows.values(),
+            key=lambda x: (not x["is_active"], x["name"].lower()),
+        )
+
+        debug_messages.append(f"Final result: {len(sorted_apps)} apps with windows")
+
+        debug_str = " | ".join(debug_messages)
+        return {"apps": sorted_apps, "debug": debug_str}
+
     except Exception as e:
         debug_messages.append(f"Error: {e}")
-        # Gracefully handle any API errors
-        pass
-
-    debug_str = " | ".join(debug_messages)
-    return {"windows": windows_info, "debug": debug_str}
+        debug_str = " | ".join(debug_messages)
+        return {"apps": [], "debug": debug_str}
 
 
 def switch_to_app(app_name: str) -> str:
