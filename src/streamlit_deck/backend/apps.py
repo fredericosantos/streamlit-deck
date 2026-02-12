@@ -235,12 +235,14 @@ def get_running_windows() -> dict:
         )
         debug_messages.append(f"Found {len(windows)} windows from Quartz")
 
-        for window in windows:
+        for i, window in enumerate(windows):
             title = window.get("kCGWindowName")
             pid = window.get("kCGWindowOwnerPID")
 
             if title and pid and pid in app_info:
-                debug_messages.append(f"Window: '{title}' from {app_info[pid]['name']}")
+                debug_messages.append(
+                    f"Window {i}: '{title}' from {app_info[pid]['name']}"
+                )
                 windows_info.append(
                     {
                         "title": title,
@@ -248,6 +250,15 @@ def get_running_windows() -> dict:
                         "icon_bytes": app_info[pid]["icon_bytes"],
                         "pid": pid,
                     }
+                )
+            else:
+                app_name = (
+                    "Unknown"
+                    if pid not in app_info
+                    else app_info.get(pid, {}).get("name", "Unknown")
+                )
+                debug_messages.append(
+                    f"Skipped window {i}: title='{title}', pid={pid}, app='{app_name}'"
                 )
 
     except Exception as e:
@@ -267,14 +278,21 @@ def switch_to_app(app_name: str) -> str:
         return "Window switching only supported on macOS"
 
     try:
-        # Use AppleScript to activate the app
-        script = f'tell application "{app_name}" to activate'
-        result = subprocess.run(
-            ["osascript", "-e", script], capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            return f"Switched to {app_name}"
-        else:
-            return f"Error switching to {app_name}: {result.stderr}"
+        # Use PyObjC to activate the app
+        workspace = NSWorkspace.sharedWorkspace()
+        running_apps = workspace.runningApplications()
+
+        for app in running_apps:
+            if app.localizedName() == app_name:
+                # Try to activate the app
+                activated = app.activateWithOptions_(
+                    1
+                )  # NSApplicationActivateIgnoringOtherApps
+                if activated:
+                    return f"Switched to {app_name}"
+                else:
+                    return f"Failed to activate {app_name}"
+
+        return f"Application '{app_name}' not found or not running"
     except Exception as e:
         return f"Error switching to app: {e}"
