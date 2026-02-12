@@ -253,7 +253,13 @@ class MacOSApps(BaseApps):
         try:
             with open(plist_path, "rb") as f:
                 plist_data = plistlib.load(f)
-        except Exception:
+        except Exception as e:
+            docked["_debug_error"] = {
+                "command": "",
+                "icon_bytes": None,
+                "type": "debug",
+                "error": f"Failed to load plist: {e}",
+            }
             return docked
 
         # Parse persistent-apps
@@ -285,5 +291,14 @@ class MacOSApps(BaseApps):
                 label = tile_data.get("file-label", os.path.basename(path))
                 # For folders, no icon for now
                 docked[label] = {"command": path, "icon_bytes": None, "type": "folder"}
+
+        # Debug if empty
+        if not docked:
+            docked["_debug_empty"] = {
+                "command": "",
+                "icon_bytes": None,
+                "type": "debug",
+                "data": f"Plist loaded, but no items. persistent-apps: {len(plist_data.get('persistent-apps', []))}, persistent-others: {len(plist_data.get('persistent-others', []))}",
+            }
 
         return dict(sorted(docked.items()))

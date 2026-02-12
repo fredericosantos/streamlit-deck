@@ -33,18 +33,25 @@ def render_dock_viewer(apps_handler):
                     name, item_data = items_list[item_idx]
 
                     with item_cols[col_idx]:
-                        icon_bytes = item_data.get("icon_bytes")
-                        command = item_data.get("command")
+                        if item_data.get("type") == "debug":
+                            # Display debug info
+                            st.code(
+                                f"Debug: {name}\n{item_data.get('error', item_data.get('data', 'No data'))}",
+                                language="text",
+                            )
+                        else:
+                            icon_bytes = item_data.get("icon_bytes")
+                            command = item_data.get("command")
 
-                        # Use render_icon_button for consistent styling
-                        if render_icon_button(
-                            icon_bytes,
-                            name,
-                            f"dock_{item_idx}",
-                            use_container_width=True,
-                        ):
-                            # Launch the item on click
-                            msg = apps_handler.launch_app(command)
-                            st.toast(msg)
+                            # Use render_icon_button for consistent styling
+                            if render_icon_button(
+                                icon_bytes,
+                                name,
+                                f"dock_{item_idx}",
+                                use_container_width=True,
+                            ):
+                                # Launch the item on click
+                                msg = apps_handler.launch_app(command)
+                                st.toast(msg)
     else:
         st.info("No docked items found.")
