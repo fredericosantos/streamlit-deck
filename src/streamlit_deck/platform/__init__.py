@@ -1,5 +1,11 @@
 """
 Platform-specific implementations for Streamlit Deck.
+
+platform/
+├── __init__.py        # Platform selection and interface.
+├── base/              # Base abstract interfaces.
+├── linux/             # Linux implementations.
+└── macos/             # macOS implementations.
 """
 
 import sys
