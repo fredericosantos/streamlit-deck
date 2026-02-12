@@ -48,7 +48,6 @@ def render_dock_viewer(apps_handler):
                                 icon_bytes,
                                 name,
                                 f"dock_{item_idx}",
-                                use_container_width=True,
                             ):
                                 # Launch the item on click
                                 msg = apps_handler.launch_app(command)
