@@ -282,41 +282,41 @@ if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
         unsafe_allow_html=True,
     )
 
-# --- Open Windows Container ---
-st.subheader("Open Windows")
-windows_data = apps.get_running_windows()
-windows = windows_data["windows"]
-debug = windows_data["debug"]
+# --- Running Apps Container ---
+st.subheader("Running Apps")
+apps_data = apps.get_running_apps()
+running_apps = apps_data["apps"]
+debug = apps_data["debug"]
 
-if windows:
-    # Display windows in a 4-column grid
+if running_apps:
+    # Display running apps in a 4-column grid
     num_cols = 4
-    window_rows = (len(windows) + num_cols - 1) // num_cols  # Ceiling division
+    app_rows = (len(running_apps) + num_cols - 1) // num_cols  # Ceiling division
 
-    for window_row in range(window_rows):
-        window_cols = st.columns(num_cols)
+    for app_row in range(app_rows):
+        app_cols = st.columns(num_cols)
         for col_idx in range(num_cols):
-            window_idx = window_row * num_cols + col_idx
-            if window_idx < len(windows):
-                window_info = windows[window_idx]
+            app_idx = app_row * num_cols + col_idx
+            if app_idx < len(running_apps):
+                app_info = running_apps[app_idx]
 
-                with window_cols[col_idx]:
-                    window_title = window_info["title"]
-                    app_name = window_info["app_name"]
-                    # Truncate long titles
-                    if len(window_title) > 15:
-                        window_title = window_title[:12] + "..."
+                with app_cols[col_idx]:
+                    app_name = app_info["name"]
+                    is_active = app_info["is_active"]
+
+                    # Add active indicator
+                    button_label = f"{app_name} {'●' if is_active else ''}"
 
                     if st.button(
-                        window_title,
-                        key=f"window_{window_idx}",
+                        button_label,
+                        key=f"app_{app_idx}",
                         use_container_width=True,
-                        help=f"Switch to {app_name}",
+                        help=f"Bundle: {app_info['bundle_id']} | Active: {is_active}",
                     ):
                         msg = apps.switch_to_app(app_name)
                         st.toast(msg)
 else:
-    st.info("No open windows detected. This feature is macOS-only.")
+    st.info("No running apps detected. This feature is macOS-only.")
     if debug:
         st.code(f"Debug: {debug}", language="text")
 

@@ -10,11 +10,6 @@ from typing import Dict, Optional
 # macOS specific imports
 if sys.platform == "darwin":
     from AppKit import NSWorkspace
-    from Quartz import (
-        CGWindowListCopyWindowInfo,
-        kCGWindowListOptionOnScreenOnly,
-        kCGNullWindowID,
-    )
 
 
 def extract_macos_icon(app_path: str, size: tuple = (64, 64)) -> Optional[bytes]:
@@ -199,17 +194,17 @@ def launch_app(command: str) -> str:
         return f"Error launching app: {e}"
 
 
-def get_running_windows() -> dict:
+def get_running_apps() -> dict:
     """
-    Get list of open windows on macOS with app info and icons.
-    Returns dict with 'windows' list and 'debug' string
+    Get list of running applications on macOS.
+    Returns dict with 'apps' list and 'debug' string
     """
     debug_messages = []
 
     if sys.platform != "darwin":
-        return {"windows": [], "debug": "Not macOS"}
+        return {"apps": [], "debug": "Not macOS"}
 
-    windows_info = []
+    apps_info = []
 
     try:
         debug_messages.append("Getting running apps...")
@@ -218,47 +213,21 @@ def get_running_windows() -> dict:
         running_apps = workspace.runningApplications()
         debug_messages.append(f"Found {len(running_apps)} running apps")
 
-        # Create app info dict for quick lookup
-        app_info = {}
         for app in running_apps:
-            pid = app.processIdentifier()
             name = app.localizedName()
-            if name:
-                debug_messages.append(f"Processing app: {name} (PID: {pid})")
-                # Skip icon for now to simplify
-                app_info[pid] = {"name": name, "icon_bytes": None}
+            bundle_id = app.bundleIdentifier()
+            is_active = app.isActive()
 
-        debug_messages.append("Getting window info with Quartz...")
-        # Get window info with Quartz
-        windows = CGWindowListCopyWindowInfo(
-            kCGWindowListOptionOnScreenOnly, kCGNullWindowID
-        )
-        debug_messages.append(f"Found {len(windows)} windows from Quartz")
-
-        for i, window in enumerate(windows):
-            title = window.get("kCGWindowName")
-            pid = window.get("kCGWindowOwnerPID")
-
-            if title and pid and pid in app_info:
+            if name:  # Only include apps with names
                 debug_messages.append(
-                    f"Window {i}: '{title}' from {app_info[pid]['name']}"
+                    f"App: {name}, Bundle: {bundle_id}, Active: {is_active}"
                 )
-                windows_info.append(
+                apps_info.append(
                     {
-                        "title": title,
-                        "app_name": app_info[pid]["name"],
-                        "icon_bytes": app_info[pid]["icon_bytes"],
-                        "pid": pid,
+                        "name": name,
+                        "bundle_id": bundle_id,
+                        "is_active": is_active,
                     }
-                )
-            else:
-                app_name = (
-                    "Unknown"
-                    if pid not in app_info
-                    else app_info.get(pid, {}).get("name", "Unknown")
-                )
-                debug_messages.append(
-                    f"Skipped window {i}: title='{title}', pid={pid}, app='{app_name}'"
                 )
 
     except Exception as e:
@@ -267,7 +236,7 @@ def get_running_windows() -> dict:
         pass
 
     debug_str = " | ".join(debug_messages)
-    return {"windows": windows_info, "debug": debug_str}
+    return {"apps": apps_info, "debug": debug_str}
 
 
 def switch_to_app(app_name: str) -> str:
