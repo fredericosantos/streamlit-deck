@@ -20,15 +20,15 @@ def render_dock_viewer(apps_handler):
     docked_items = apps_handler.get_docked_apps()
 
     if docked_items:
-        # Display items in a 4-column grid
-        num_cols = 4
+        # Display items in a single row with dynamic columns
+        num_cols = len(docked_items)
         items_list = list(docked_items.items())
-        item_rows = (len(items_list) + num_cols - 1) // num_cols  # Ceiling division
+        item_rows = 1  # One row only
 
         for item_row in range(item_rows):
             item_cols = st.columns(num_cols)
             for col_idx in range(num_cols):
-                item_idx = item_row * num_cols + col_idx
+                item_idx = col_idx  # Since one row
                 if item_idx < len(items_list):
                     name, item_data = items_list[item_idx]
 
@@ -43,12 +43,8 @@ def render_dock_viewer(apps_handler):
                             icon_bytes = item_data.get("icon_bytes")
                             command = item_data.get("command")
 
-                            # Use render_icon_button for consistent styling
-                            if render_icon_button(
-                                icon_bytes,
-                                name,
-                                f"dock_{item_idx}",
-                            ):
+                            # Use render_icon_button with empty label for icon-only display
+                            if render_icon_button(icon_bytes, "", f"dock_{item_idx}"):
                                 # Launch the item on click
                                 msg = apps_handler.launch_app(command)
                                 st.toast(msg)
