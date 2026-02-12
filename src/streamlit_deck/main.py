@@ -1,6 +1,7 @@
 import streamlit as st
 from streamlit_deck.backend import config, executor, apps
 import base64
+import sys
 
 
 # Utility functions for icon handling
@@ -350,49 +351,92 @@ if st.session_state.edit_mode and st.session_state.selected_button:
     # Header removed per user request
 
     # --- Mappings & Constants ---
-    BASIC_CHARS_DISPLAY = [c.upper() for c in string.ascii_lowercase] + list(
-        string.digits
+    BASIC_CHARS_DISPLAY = (
+        [c.upper() for c in string.ascii_lowercase]
+        + list(string.digits)
+        + list("!@#$%^&*()[]{}|;:,.<>?/")
     )
     BASIC_CHARS_MAP = {c.upper(): c for c in string.ascii_lowercase}
     BASIC_CHARS_MAP.update({d: d for d in string.digits})  # Digits map to themselves
+    BASIC_CHARS_MAP.update(
+        {p: p for p in "!@#$%^&*()[]{}|;:,.<>?/"}
+    )  # Punctuation maps to itself
 
-    EXTENDED_CHARS = [
-        "⌃ ctrl",
-        "⇧ shift",
-        "⌥ alt",
-        "⌘ cmd",
-        "↵ enter",
-        "⎋ esc",
-        "⇥ tab",
-        "␣ space",
-        "⌫ backspace",
-        "⌦ delete",
-        "↑ up",
-        "↓ down",
-        "← left",
-        "→ right",
-        "⇪ capslock",
-    ] + [f"F{i}" for i in range(1, 13)]
+    # OS-specific extended characters
+    if st.session_state.os_mode == "macos":
+        EXTENDED_CHARS = [
+            "⌃ ctrl",
+            "⇧ shift",
+            "⌥ alt",
+            "⌘ cmd",
+            "↵ enter",
+            "⎋ esc",
+            "⇥ tab",
+            "␣ space",
+            "⌫ backspace",
+            "⌦ delete",
+            "↑ up",
+            "↓ down",
+            "← left",
+            "→ right",
+            "⇪ capslock",
+        ] + [f"F{i}" for i in range(1, 13)]
 
-    # Mapping from display name to internal key name
-    EXTENDED_CHAR_MAP = {
-        "⌃ ctrl": "ctrl",
-        "⇧ shift": "shift",
-        "⌥ alt": "alt",
-        "⌘ cmd": "cmd",
-        "↵ enter": "enter",
-        "⎋ esc": "esc",
-        "⇥ tab": "tab",
-        "␣ space": "space",
-        "⌫ backspace": "backspace",
-        "⌦ delete": "delete",
-        "↑ up": "up",
-        "↓ down": "down",
-        "← left": "left",
-        "→ right": "right",
-        "⇪ capslock": "capslock",
-    }
-    # Add function keys
+        EXTENDED_CHAR_MAP = {
+            "⌃ ctrl": "ctrl",
+            "⇧ shift": "shift",
+            "⌥ alt": "alt",
+            "⌘ cmd": "cmd",
+            "↵ enter": "enter",
+            "⎋ esc": "esc",
+            "⇥ tab": "tab",
+            "␣ space": "space",
+            "⌫ backspace": "backspace",
+            "⌦ delete": "delete",
+            "↑ up": "up",
+            "↓ down": "down",
+            "← left": "left",
+            "→ right": "right",
+            "⇪ capslock": "capslock",
+        }
+    else:  # linux
+        EXTENDED_CHARS = [
+            "Ctrl",
+            "Shift",
+            "Alt",
+            "Super",
+            "Enter",
+            "Esc",
+            "Tab",
+            "Space",
+            "Backspace",
+            "Delete",
+            "Up",
+            "Down",
+            "Left",
+            "Right",
+            "CapsLock",
+        ] + [f"F{i}" for i in range(1, 13)]
+
+        EXTENDED_CHAR_MAP = {
+            "Ctrl": "ctrl",
+            "Shift": "shift",
+            "Alt": "alt",
+            "Super": "cmd",  # Maps to cmd in backend KEY_MAP
+            "Enter": "enter",
+            "Esc": "esc",
+            "Tab": "tab",
+            "Space": "space",
+            "Backspace": "backspace",
+            "Delete": "delete",
+            "Up": "up",
+            "Down": "down",
+            "Left": "left",
+            "Right": "right",
+            "CapsLock": "capslock",
+        }
+
+    # Add function keys to map
     for i in range(1, 13):
         EXTENDED_CHAR_MAP[f"F{i}"] = f"f{i}"
 
@@ -442,6 +486,13 @@ if st.session_state.edit_mode and st.session_state.selected_button:
         st.session_state.draft_app = None
     if "draft_label" not in st.session_state:
         st.session_state.draft_label = btn_data.get("label", "")
+
+    # OS Mode default
+    if "os_mode" not in st.session_state:
+        st.session_state.os_mode = "macos" if sys.platform == "darwin" else "linux"
+
+    # --- OS Mode Toggle ---
+    st.selectbox("OS Mode", ["macos", "linux"], key="os_mode")
 
     # We use 'last_selected_btn_id' to detect when the user clicked a different button
     # and re-initialize the draft state from the config.
