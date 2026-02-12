@@ -46,16 +46,115 @@ def _get_default_icon():
 
 
 class MacOSApps(BaseApps):
+    def _normalize_app_path(self, app_path: str) -> str:
+        """Normalize app path by removing trailing slashes."""
+        return app_path.rstrip("/")
+
+    def _extract_icon_with_debug(
+        self, app_path: str, size: tuple = (64, 64)
+    ) -> tuple[bytes | None, str]:
+        """
+        Extract icon with debug info about which method succeeded.
+        Returns (icon_bytes, method_name).
+        """
+        # Normalize path
+        app_path = self._normalize_app_path(app_path)
+
+        # Try Info.plist method first
+        icon_bytes, method = self.extract_icon_from_info_plist(app_path, size)
+        if icon_bytes:
+            return icon_bytes, method
+
+        # Try NSWorkspace API
+        icon_bytes, method = self.extract_icon_via_workspace(app_path, size)
+        if icon_bytes:
+            return icon_bytes, method
+
+        # Try cache
+        cache_dir = os.path.expanduser("~/.streamlit_deck/cache/icons")
+        cache_key = hashlib.md5(app_path.encode()).hexdigest()
+        png_cache_file = os.path.join(cache_dir, f"{cache_key}.png")
+        svg_cache_file = os.path.join(cache_dir, f"{cache_key}.svg")
+
+        if os.path.exists(png_cache_file):
+            with open(png_cache_file, "rb") as f:
+                return f.read(), "cache_png"
+        if os.path.exists(svg_cache_file):
+            with open(svg_cache_file, "rb") as f:
+                return f.read(), "cache_svg"
+
+        # Fall back to manual extraction
+        icon_bytes = self.extract_macos_icon(app_path, size)
+        if icon_bytes:
+            # Determine if it's SVG or PNG
+            if icon_bytes.startswith(b"<?xml") or icon_bytes.startswith(b"<svg"):
+                return icon_bytes, "manual_svg"
+            else:
+                return icon_bytes, "manual_png"
+
+        return icon_bytes, "default_icon"
+
+    def extract_icon_from_info_plist(
+        self, app_path: str, size: tuple = (64, 64)
+    ) -> tuple[bytes | None, str]:
+        """
+        Extract icon by reading CFBundleIconFile from Info.plist.
+        Returns (icon_bytes, method_name) for debugging.
+        """
+        try:
+            # Normalize path
+            app_path = self._normalize_app_path(app_path)
+
+            # Read Info.plist
+            info_plist_path = os.path.join(app_path, "Contents", "Info.plist")
+            if not os.path.exists(info_plist_path):
+                return None, "no_info_plist"
+
+            with open(info_plist_path, "rb") as f:
+                info_plist = plistlib.load(f)
+
+            # Get the icon file name from CFBundleIconFile
+            icon_file = info_plist.get("CFBundleIconFile")
+            if not icon_file:
+                return None, "no_cf_bundle_icon_file"
+
+            # Look for the .icns file in Resources
+            resources_dir = os.path.join(app_path, "Contents", "Resources")
+            if not os.path.exists(resources_dir):
+                return None, "no_resources_dir"
+
+            # Try the exact name first, then with .icns extension
+            icon_path = os.path.join(resources_dir, f"{icon_file}.icns")
+            if not os.path.exists(icon_path):
+                icon_path = os.path.join(resources_dir, icon_file)
+
+            if not os.path.exists(icon_path):
+                return None, f"icon_not_found:{icon_file}"
+
+            # Extract the icon using PIL
+            with Image.open(icon_path) as img:
+                img = img.convert("RGBA")
+                img = img.resize(size, Image.Resampling.LANCZOS)
+                buffer = BytesIO()
+                img.save(buffer, format="PNG")
+                return buffer.getvalue(), "info_plist"
+
+        except Exception as e:
+            return None, f"error:{str(e)}"
+
     def extract_icon_via_workspace(
         self, app_path: str, size: tuple = (64, 64)
-    ) -> bytes:
+    ) -> tuple[bytes | None, str]:
         """
         Extract icon using NSWorkspace.iconForFile (native macOS API).
-        This is the most reliable way to get the correct app icon.
+        Returns (icon_bytes, method_name) for debugging.
         """
         try:
             # Import AppKit here to avoid issues on non-macOS systems
             from AppKit import NSWorkspace
+
+            # Normalize path
+            app_path = self._normalize_app_path(app_path)
 
             workspace = NSWorkspace.sharedWorkspace()
 
@@ -81,19 +180,28 @@ class MacOSApps(BaseApps):
                     # Convert to PNG
                     buffer = io.BytesIO()
                     img.save(buffer, format="PNG")
-                    return buffer.getvalue()
+                    return buffer.getvalue(), "nsworkspace"
 
-            return None
-        except Exception:
-            return None
+            return None, "nsworkspace_no_image"
+        except Exception as e:
+            return None, f"nsworkspace_error:{str(e)}"
 
     def extract_macos_icon(self, app_path: str, size: tuple = (64, 64)) -> bytes:
         """
         Extracts icon from a macOS .app bundle and returns it as bytes.
-        Tries NSWorkspace API first (most reliable), then falls back to manual .icns extraction.
+        Tries Info.plist method first, then NSWorkspace, then falls back to manual extraction.
+        Also returns debug info about which method succeeded.
         """
-        # First try the native NSWorkspace API (most reliable)
-        icon_bytes = self.extract_icon_via_workspace(app_path, size)
+        # Normalize path first
+        app_path = self._normalize_app_path(app_path)
+
+        # Try Info.plist method first (most reliable for getting correct icon)
+        icon_bytes, method = self.extract_icon_from_info_plist(app_path, size)
+        if icon_bytes:
+            return icon_bytes
+
+        # Try NSWorkspace API as fallback
+        icon_bytes, method = self.extract_icon_via_workspace(app_path, size)
         if icon_bytes:
             return icon_bytes
 
@@ -101,7 +209,7 @@ class MacOSApps(BaseApps):
         resources_dir = os.path.join(app_path, "Contents", "Resources")
 
         if not os.path.exists(resources_dir):
-            return None
+            return _get_default_icon()
 
         # First, try to find SVG files
         for file in os.listdir(resources_dir):
@@ -141,10 +249,13 @@ class MacOSApps(BaseApps):
 
     def get_cached_icon(self, app_path: str) -> bytes:
         """Get icon from cache or extract and cache it."""
+        # Normalize path first
+        app_path = self._normalize_app_path(app_path)
+
         cache_dir = os.path.expanduser("~/.streamlit_deck/cache/icons")
         os.makedirs(cache_dir, exist_ok=True)
 
-        # Create cache key from app path
+        # Create cache key from normalized app path
         cache_key = hashlib.md5(app_path.encode()).hexdigest()
 
         # Check for both SVG and PNG cache files
@@ -340,20 +451,26 @@ class MacOSApps(BaseApps):
             url = file_data.get("_CFURLString", "")
             if url.startswith("file://"):
                 path = urllib.parse.unquote(url[7:])  # remove file:// and unquote
+                # Normalize path (remove trailing slashes)
+                path = self._normalize_app_path(path)
                 label = tile_data.get(
                     "file-label", os.path.basename(path).replace(".app", "")
                 )
                 # Reuse icon from installed_apps if available, otherwise extract
                 icon_bytes = None
+                icon_method = None
                 if installed_apps and label in installed_apps:
                     icon_bytes = installed_apps[label].get("icon_bytes")
+                    icon_method = "installed_apps"
                 elif path.endswith(".app"):
-                    icon_bytes = self.get_cached_icon(path)
+                    # Try to extract with debug info
+                    icon_bytes, icon_method = self._extract_icon_with_debug(path)
 
                 docked[label] = {
                     "command": path,
                     "icon_bytes": icon_bytes,
                     "type": "app",
+                    "icon_method": icon_method,  # Debug info
                 }
 
         # Parse persistent-others (folders, etc.)
