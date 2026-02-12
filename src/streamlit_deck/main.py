@@ -25,16 +25,15 @@ def get_icon_display(icon_bytes: bytes, size: int = 48) -> str:
 
 
 def display_icon_in_column(icon_bytes: bytes, size: int = 48):
-    """Display icon in a Streamlit column."""
+    """Display icon in a column with vertical centering."""
     if icon_bytes:
         icon_html = get_icon_display(icon_bytes, size)
-        st.markdown(icon_html, unsafe_allow_html=True)
+        # Wrap in a container with centering class
+        centered_html = f'<div class="icon-container">{icon_html}</div>'
+        st.markdown(centered_html, unsafe_allow_html=True)
     else:
-        # Empty placeholder to maintain alignment
-        st.markdown(
-            f'<div style="width: {size}px; height: {size}px;"></div>',
-            unsafe_allow_html=True,
-        )
+        # Empty placeholder with same height for alignment
+        st.markdown('<div class="icon-container"></div>', unsafe_allow_html=True)
 
 
 # Page Config
@@ -50,10 +49,16 @@ st.markdown(
     """
 <style>
     .stButton button {
-        height: 100px;
-        width: 100%;
-        font-size: 24px;
+        height: 60px !important;  /* Reduced from 100px to 60px */
+        font-size: 18px !important;  /* Slightly smaller font */
         font-weight: bold;
+    }
+    /* Center icons vertically in their containers */
+    .icon-container {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 60px !important;  /* Match button height */
     }
 </style>
 """,
