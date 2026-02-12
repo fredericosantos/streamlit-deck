@@ -9,7 +9,7 @@ from typing import Dict, Optional
 
 # macOS specific imports
 if sys.platform == "darwin":
-    from AppKit import NSWorkspace
+    from AppKit import NSWorkspace, NSBitmapImageRep, NSPNGFileType
     from Quartz import (
         CGWindowListCopyWindowInfo,
         kCGWindowListOptionOnScreenOnly,
@@ -230,19 +230,19 @@ def get_running_windows() -> dict:
                 icon_bytes = None
                 if icon:
                     debug_messages.append(f"  Got icon for {name}")
-                    # Convert NSImage to bytes (PNG)
-                    icon.setSize_((64, 64))
-                    tiff_data = icon.TIFFRepresentation()
-                    if tiff_data:
-                        # Convert TIFF to PNG
-                        tiff_buffer = BytesIO(tiff_data)
-                        img = Image.open(tiff_buffer)
-                        png_buffer = BytesIO()
-                        img.save(png_buffer, format="PNG")
-                        icon_bytes = png_buffer.getvalue()
-                        debug_messages.append(
-                            f"  Converted icon to PNG ({len(icon_bytes)} bytes)"
+                    # Convert NSImage to PNG bytes directly
+                    bitmap = icon.bestRepresentationForRect_context_hints_(
+                        icon.rect(), None, None
+                    )
+                    if bitmap and isinstance(bitmap, NSBitmapImageRep):
+                        png_data = bitmap.representationUsingType_properties_(
+                            NSPNGFileType, None
                         )
+                        if png_data:
+                            icon_bytes = bytes(png_data)
+                            debug_messages.append(
+                                f"  Converted icon to PNG ({len(icon_bytes)} bytes)"
+                            )
 
                 app_info[pid] = {"name": name, "icon_bytes": icon_bytes}
 
