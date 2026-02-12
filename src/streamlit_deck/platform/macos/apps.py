@@ -46,11 +46,58 @@ def _get_default_icon():
 
 
 class MacOSApps(BaseApps):
+    def extract_icon_via_workspace(
+        self, app_path: str, size: tuple = (64, 64)
+    ) -> bytes:
+        """
+        Extract icon using NSWorkspace.iconForFile (native macOS API).
+        This is the most reliable way to get the correct app icon.
+        """
+        try:
+            # Import AppKit here to avoid issues on non-macOS systems
+            from AppKit import NSWorkspace
+
+            workspace = NSWorkspace.sharedWorkspace()
+
+            # Get the icon image for the file
+            icon_image = workspace.iconForFile_(app_path)
+
+            if icon_image:
+                # Convert NSImage to PNG data
+                # Set the size we want
+                icon_image.setSize_((size[0], size[1]))
+
+                # Get the TIFF representation
+                tiff_data = icon_image.TIFFRepresentation()
+
+                if tiff_data:
+                    # Convert TIFF to PNG using PIL
+                    from PIL import Image
+                    import io
+
+                    # Load TIFF data into PIL
+                    img = Image.open(io.BytesIO(bytes(tiff_data)))
+
+                    # Convert to PNG
+                    buffer = io.BytesIO()
+                    img.save(buffer, format="PNG")
+                    return buffer.getvalue()
+
+            return None
+        except Exception:
+            return None
+
     def extract_macos_icon(self, app_path: str, size: tuple = (64, 64)) -> bytes:
         """
         Extracts icon from a macOS .app bundle and returns it as bytes.
-        Prefers icns library if available, falls back to PIL
+        Tries NSWorkspace API first (most reliable), then falls back to manual .icns extraction.
         """
+        # First try the native NSWorkspace API (most reliable)
+        icon_bytes = self.extract_icon_via_workspace(app_path, size)
+        if icon_bytes:
+            return icon_bytes
+
+        # Fall back to manual extraction
         resources_dir = os.path.join(app_path, "Contents", "Resources")
 
         if not os.path.exists(resources_dir):

@@ -54,7 +54,7 @@ def render_dock_viewer(apps_handler, installed_apps=None):
         items_html.append(f'''
             <a href="#" id="{idx}" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; padding: 5px;">
                 <img src="{img_src}" style="width: 60px; height: 60px; border-radius: 10px;" />
-                <span style="font-size: 12px; margin-top: 5px; color: inherit;">{name}</span>
+                <span style="font-size: 12px; margin-top: 5px; font-family: monospace;">{name}</span>
             </a>
         ''')
 
