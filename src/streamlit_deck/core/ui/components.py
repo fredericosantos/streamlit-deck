@@ -20,11 +20,13 @@ def render_icon_button(icon_bytes: bytes, label: str, key: str, **kwargs) -> boo
         True if the button was clicked.
     """
     # Create mini-row within each grid cell: icon + button label
-    cell_cols = st.columns([1, 3], gap="small")  # Icon column narrower
+    cell_cols = st.columns(
+        [1, 2], gap="none"
+    )  # Icon column wider, no gap for closer spacing
 
     with cell_cols[0]:
         # Display icon in first mini-column
-        display_icon_in_column(icon_bytes, size=48)
+        display_icon_in_column(icon_bytes, size=60)
 
     with cell_cols[1]:
         return st.button(label, key=key, use_container_width=True, **kwargs)

@@ -59,9 +59,6 @@ render_grid(
     APPS_DICT,
 )
 
-# --- Open Windows ---
-render_open_windows(apps_handler)
-
 st.divider()
 
 if st.session_state.edit_mode and st.session_state.selected_button:
@@ -79,3 +76,6 @@ if st.session_state.edit_mode:
     rows = layout.get("rows", 2)
     cols = layout.get("cols", 2)
     st.info(f"Layout: {layout_name} | Size: {rows}x{cols}")
+
+# --- Open Windows ---
+render_open_windows(apps_handler)
