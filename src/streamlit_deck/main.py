@@ -284,7 +284,9 @@ if not st.session_state.edit_mode and rows <= 3 and cols <= 3:
 
 # --- Open Windows Container ---
 st.subheader("Open Windows")
-windows = apps.get_running_windows()
+windows_data = apps.get_running_windows()
+windows = windows_data["windows"]
+debug = windows_data["debug"]
 
 if windows:
     # Display windows in a 4-column grid
@@ -326,6 +328,8 @@ if windows:
                             st.toast(msg)
 else:
     st.info("No open windows detected. This feature is macOS-only.")
+    if debug:
+        st.code(f"Debug: {debug}", language="text")
 
 # --- Editor Interface (Below Grid) ---
 if st.session_state.edit_mode and st.session_state.selected_button:

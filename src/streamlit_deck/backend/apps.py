@@ -199,20 +199,24 @@ def launch_app(command: str) -> str:
         return f"Error launching app: {e}"
 
 
-def get_running_windows() -> list:
+def get_running_windows() -> dict:
     """
     Get list of open windows on macOS with app info and icons.
-    Returns list of dicts with 'title', 'app_name', 'icon_bytes', 'pid'
+    Returns dict with 'windows' list and 'debug' string
     """
+    debug_messages = []
+
     if sys.platform != "darwin":
-        return []
+        return {"windows": [], "debug": "Not macOS"}
 
     windows_info = []
 
     try:
+        debug_messages.append("Getting running apps...")
         # Get running applications with AppKit
         workspace = NSWorkspace.sharedWorkspace()
         running_apps = workspace.runningApplications()
+        debug_messages.append(f"Found {len(running_apps)} running apps")
 
         # Create app info dict for quick lookup
         app_info = {}
@@ -220,10 +224,12 @@ def get_running_windows() -> list:
             pid = app.processIdentifier()
             name = app.localizedName()
             if name:
+                debug_messages.append(f"Processing app: {name} (PID: {pid})")
                 # Get icon from NSRunningApplication
                 icon = app.icon()
                 icon_bytes = None
                 if icon:
+                    debug_messages.append(f"  Got icon for {name}")
                     # Convert NSImage to bytes (PNG)
                     icon.setSize_((64, 64))
                     tiff_data = icon.TIFFRepresentation()
@@ -234,19 +240,25 @@ def get_running_windows() -> list:
                         png_buffer = BytesIO()
                         img.save(png_buffer, format="PNG")
                         icon_bytes = png_buffer.getvalue()
+                        debug_messages.append(
+                            f"  Converted icon to PNG ({len(icon_bytes)} bytes)"
+                        )
 
                 app_info[pid] = {"name": name, "icon_bytes": icon_bytes}
 
+        debug_messages.append("Getting window info with Quartz...")
         # Get window info with Quartz
         windows = CGWindowListCopyWindowInfo(
             kCGWindowListOptionOnScreenOnly, kCGNullWindowID
         )
+        debug_messages.append(f"Found {len(windows)} windows from Quartz")
 
         for window in windows:
             title = window.get("kCGWindowName")
             pid = window.get("kCGWindowOwnerPID")
 
             if title and pid and pid in app_info:
+                debug_messages.append(f"Window: '{title}' from {app_info[pid]['name']}")
                 windows_info.append(
                     {
                         "title": title,
@@ -256,11 +268,13 @@ def get_running_windows() -> list:
                     }
                 )
 
-    except Exception:
+    except Exception as e:
+        debug_messages.append(f"Error: {e}")
         # Gracefully handle any API errors
         pass
 
-    return windows_info
+    debug_str = " | ".join(debug_messages)
+    return {"windows": windows_info, "debug": debug_str}
 
 
 def switch_to_app(app_name: str) -> str:
