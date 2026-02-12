@@ -10,6 +10,11 @@ from typing import Dict, Optional
 # macOS specific imports
 if sys.platform == "darwin":
     from AppKit import NSWorkspace
+    from Quartz import (
+        CGWindowListCopyWindowInfo,
+        kCGWindowListOptionOnScreenOnly,
+        kCGNullWindowID,
+    )
 
 
 def extract_macos_icon(app_path: str, size: tuple = (64, 64)) -> Optional[bytes]:
@@ -194,39 +199,40 @@ def launch_app(command: str) -> str:
         return f"Error launching app: {e}"
 
 
-def get_running_apps() -> dict:
+def get_open_windows() -> dict:
     """
-    Get list of running applications on macOS.
-    Returns dict with 'apps' list and 'debug' string
+    Get list of open windows on macOS using Quartz.
+    Returns dict with 'windows' list and 'debug' string
     """
     debug_messages = []
 
     if sys.platform != "darwin":
-        return {"apps": [], "debug": "Not macOS"}
+        return {"windows": [], "debug": "Not macOS"}
 
-    apps_info = []
+    windows_info = []
 
     try:
-        debug_messages.append("Getting running apps...")
-        # Get running applications with AppKit
-        workspace = NSWorkspace.sharedWorkspace()
-        running_apps = workspace.runningApplications()
-        debug_messages.append(f"Found {len(running_apps)} running apps")
+        debug_messages.append("Getting window list with Quartz...")
+        # Get window list
+        window_list = CGWindowListCopyWindowInfo(
+            kCGWindowListOptionOnScreenOnly, kCGNullWindowID
+        )
+        debug_messages.append(f"Found {len(window_list)} windows")
 
-        for app in running_apps:
-            name = app.localizedName()
-            bundle_id = app.bundleIdentifier()
-            is_active = app.isActive()
+        for window in window_list:
+            owner_name = window.get("kCGWindowOwnerName")
+            window_name = window.get("kCGWindowName", "N/A")
+            bounds = window.get("kCGWindowBounds")
 
-            if name:  # Only include apps with names
+            if owner_name:
                 debug_messages.append(
-                    f"App: {name}, Bundle: {bundle_id}, Active: {is_active}"
+                    f"Window: {window_name}, App: {owner_name}, Bounds: {bounds}"
                 )
-                apps_info.append(
+                windows_info.append(
                     {
-                        "name": name,
-                        "bundle_id": bundle_id,
-                        "is_active": is_active,
+                        "title": window_name,
+                        "app_name": owner_name,
+                        "bounds": bounds,
                     }
                 )
 
@@ -236,7 +242,7 @@ def get_running_apps() -> dict:
         pass
 
     debug_str = " | ".join(debug_messages)
-    return {"apps": apps_info, "debug": debug_str}
+    return {"windows": windows_info, "debug": debug_str}
 
 
 def switch_to_app(app_name: str) -> str:
