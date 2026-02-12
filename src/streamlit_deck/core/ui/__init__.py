@@ -1,9 +1,11 @@
 """
-UI components for Streamlit Deck.
+UI components and layout rendering for Streamlit Deck.
 
 ui/
 ├── __init__.py        # UI package initialization.
-├── grid.py            # Grid rendering and interaction.
+├── components.py      # Reusable UI components.
 ├── editor.py          # Button editor interface.
-└── sidebar.py         # Sidebar controls and layout management.
+├── grid.py            # Main grid layout rendering.
+├── sidebar.py         # Sidebar configuration and settings.
+└── windows.py         # Open windows and app switching UI.
 """

@@ -3,8 +3,8 @@ Grid rendering and interaction for Streamlit Deck.
 """
 
 import streamlit as st
-from ...shared.ui_utils import display_icon_in_column
-from ...shared.app_utils import build_apps_reverse_map
+from streamlit_deck.shared.app_utils import build_apps_reverse_map
+from streamlit_deck.core.ui.components import render_icon_button
 
 
 def render_grid(layout, edit_mode, selected_button, current_layout_name, APPS_DICT):
@@ -50,48 +50,38 @@ def render_grid(layout, edit_mode, selected_button, current_layout_name, APPS_DI
                             if app_name and APPS_DICT[app_name].get("icon_bytes"):
                                 icon_bytes = APPS_DICT[app_name]["icon_bytes"]
 
-                        # Create mini-row within each grid cell: icon + button label
-                        cell_cols = st.columns(
-                            [1, 3], gap="small"
-                        )  # Icon column narrower
+                        # Unique key is crucial
+                        # Add shortcut for quick access (numbers for first 9 buttons)
+                        shortcut = None
+                        if not edit_mode and rows <= 3 and cols <= 3:
+                            # Map position to number (1-9) for small grids
+                            shortcut_num = r * cols + c + 1
+                            if shortcut_num <= 9:
+                                shortcut = str(shortcut_num)
 
-                        with cell_cols[0]:
-                            # Display icon in first mini-column
-                            display_icon_in_column(icon_bytes, size=48)
+                        clicked = render_icon_button(
+                            icon_bytes=icon_bytes,
+                            label=label,
+                            key=f"btn_{r}_{c}",
+                            type=btn_display_type,
+                            shortcut=shortcut,
+                        )
 
-                        with cell_cols[1]:
-                            # Unique key is crucial
-                            # Add shortcut for quick access (numbers for first 9 buttons)
-                            shortcut = None
-                            if not edit_mode and rows <= 3 and cols <= 3:
-                                # Map position to number (1-9) for small grids
-                                shortcut_num = r * cols + c + 1
-                                if shortcut_num <= 9:
-                                    shortcut = str(shortcut_num)
+                        if clicked:
+                            if edit_mode:
+                                st.session_state.selected_button = (r, c)
+                                st.rerun()
+                            else:
+                                # Execute Action
+                                if btn_data:
+                                    from streamlit_deck.core.backend.base_executor import (
+                                        execute_action,
+                                    )
 
-                            clicked = st.button(
-                                label,
-                                key=f"btn_{r}_{c}",
-                                use_container_width=True,
-                                type=btn_display_type,
-                                shortcut=shortcut,
-                            )
-
-                            if clicked:
-                                if edit_mode:
-                                    st.session_state.selected_button = (r, c)
-                                    st.rerun()
-                                else:
-                                    # Execute Action
-                                    if btn_data:
-                                        from ...core.backend.base_executor import (
-                                            execute_action,
-                                        )
-
-                                        msg = execute_action(
-                                            btn_data.get("type"), btn_data.get("action")
-                                        )
-                                        st.toast(msg)
+                                    msg = execute_action(
+                                        btn_data.get("type"), btn_data.get("action")
+                                    )
+                                    st.toast(msg)
                     else:
                         # Render empty placeholder to maintain grid alignment
                         st.markdown(

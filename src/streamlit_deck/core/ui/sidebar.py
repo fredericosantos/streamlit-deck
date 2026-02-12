@@ -1,5 +1,9 @@
 import streamlit as st
-from ..backend.config import list_layouts, save_layout, create_default_layout
+from streamlit_deck.backend.config import (
+    list_layouts,
+    save_layout,
+    create_default_layout,
+)
 
 
 def render_sidebar(layout):
