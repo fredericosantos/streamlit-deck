@@ -3,6 +3,7 @@ import sys
 import glob
 import subprocess
 import hashlib
+import shlex
 from PIL import Image
 from io import BytesIO
 from typing import Dict, Optional
@@ -139,11 +140,11 @@ def get_installed_apps() -> Dict[str, Dict[str, str]]:
 
                     if name and exec_cmd:
                         # Clean up exec command (remove %f, %u, etc placeholders)
-                        cmd_parts = exec_cmd.split()
-                        clean_cmd = []
-                        for part in cmd_parts:
-                            if not part.startswith("%"):
-                                clean_cmd.append(part)
+                        cmd_parts = shlex.split(exec_cmd)
+                        clean_cmd = [
+                            part for part in cmd_parts if not part.startswith("%")
+                        ]
+                        command = shlex.join(clean_cmd)
 
                         # Try to load icon if specified
                         icon_bytes = None
@@ -160,7 +161,7 @@ def get_installed_apps() -> Dict[str, Dict[str, str]]:
                                         continue
 
                         apps[name] = {
-                            "command": " ".join(clean_cmd),
+                            "command": command,
                             "icon_bytes": icon_bytes,
                         }
                 except Exception:
@@ -197,7 +198,8 @@ def launch_app(command: str) -> str:
         else:
             # Linux/Other: Run command directly
             # Use setsid to detach process
-            subprocess.Popen(command, shell=True, start_new_session=True)
+            cmd_list = shlex.split(command)
+            subprocess.Popen(cmd_list, start_new_session=True)
             return f"Launched command: {command}"
     except Exception as e:
         return f"Error launching app: {e}"
