@@ -1,10 +1,11 @@
 """
-UI components for displaying docked apps and folders.
+UI components for displaying docked apps and folders with clickable icons.
 """
 
 import sys
+import base64
 import streamlit as st
-from ...core.ui.components import render_icon_button
+from st_click_detector import click_detector
 
 
 def render_dock_viewer(apps_handler, installed_apps=None):
@@ -24,33 +25,63 @@ def render_dock_viewer(apps_handler, installed_apps=None):
     docked_items = apps_handler.get_docked_apps(installed_apps)
 
     if docked_items:
-        # Display items in a single row with up to 8 columns
-        num_cols = min(8, len(docked_items))
-        items_list = list(docked_items.items())
-        item_rows = 1  # One row only
+        # Filter out debug items
+        real_items = {k: v for k, v in docked_items.items() if v.get("type") != "debug"}
 
-        for item_row in range(item_rows):
-            item_cols = st.columns(num_cols)
-            for col_idx in range(num_cols):
-                item_idx = col_idx  # Since one row
-                if item_idx < len(items_list):
-                    name, item_data = items_list[item_idx]
+        if not real_items:
+            # Show debug info if only debug items
+            debug_items = {
+                k: v for k, v in docked_items.items() if v.get("type") == "debug"
+            }
+            for name, item_data in debug_items.items():
+                st.code(
+                    f"Debug: {name}\n{item_data.get('error', item_data.get('data', 'No data'))}",
+                    language="text",
+                )
+            return
 
-                    with item_cols[col_idx]:
-                        if item_data.get("type") == "debug":
-                            # Display debug info
-                            st.code(
-                                f"Debug: {name}\n{item_data.get('error', item_data.get('data', 'No data'))}",
-                                language="text",
-                            )
-                        else:
-                            icon_bytes = item_data.get("icon_bytes")
-                            command = item_data.get("command")
+        # Limit to 8 items
+        items_list = list(real_items.items())[:8]
 
-                            # Use render_icon_button with name as label to ensure visibility
-                            if render_icon_button(icon_bytes, name, f"dock_{item_idx}"):
-                                # Launch the item on click
-                                msg = apps_handler.launch_app(command)
-                                st.toast(msg)
+        # Build HTML content with clickable images
+        html_parts = [
+            '<div style="display: flex; gap: 10px; justify-content: flex-start; flex-wrap: wrap;">'
+        ]
+
+        for idx, (name, item_data) in enumerate(items_list):
+            icon_bytes = item_data.get("icon_bytes")
+            command = item_data.get("command")
+
+            if icon_bytes:
+                # Convert icon bytes to base64
+                b64_icon = base64.b64encode(icon_bytes).decode("utf-8")
+                img_src = f"data:image/png;base64,{b64_icon}"
+            else:
+                # Use a placeholder or default icon
+                img_src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+
+            # Create clickable image with app name as ID
+            # We'll use the index as the ID and map it back to the command
+            html_parts.append(f'''
+                <a href="#" id="{idx}" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; padding: 5px;">
+                    <img src="{img_src}" style="width: 60px; height: 60px; border-radius: 10px;" />
+                    <span style="font-size: 12px; margin-top: 5px; color: inherit;">{name}</span>
+                </a>
+            ''')
+
+        html_parts.append("</div>")
+        html_content = "".join(html_parts)
+
+        # Use click_detector to detect which icon was clicked
+        clicked = click_detector(html_content)
+
+        if clicked is not None:
+            # clicked is the ID (index) of the clicked item
+            clicked_idx = int(clicked)
+            if 0 <= clicked_idx < len(items_list):
+                name, item_data = items_list[clicked_idx]
+                command = item_data.get("command")
+                msg = apps_handler.launch_app(command)
+                st.toast(msg)
     else:
         st.info("No docked items found.")
