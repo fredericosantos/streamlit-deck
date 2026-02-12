@@ -10,6 +10,7 @@ from typing import Dict, Optional
 # macOS specific imports
 if sys.platform == "darwin":
     from AppKit import NSWorkspace, NSBitmapImageRep, NSPNGFileType
+    from Foundation import NSRect
     from Quartz import (
         CGWindowListCopyWindowInfo,
         kCGWindowListOptionOnScreenOnly,
@@ -230,9 +231,11 @@ def get_running_windows() -> dict:
                 icon_bytes = None
                 if icon:
                     debug_messages.append(f"  Got icon for {name}")
-                    # Convert NSImage to PNG bytes directly
+                    # Set icon size
+                    icon.setSize_((64, 64))
+                    # Get bitmap representation
                     bitmap = icon.bestRepresentationForRect_context_hints_(
-                        icon.rect(), None, None
+                        NSRect((0, 0, 64, 64)), None, None
                     )
                     if bitmap and isinstance(bitmap, NSBitmapImageRep):
                         png_data = bitmap.representationUsingType_properties_(
