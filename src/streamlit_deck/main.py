@@ -180,6 +180,10 @@ with st.container(border=True):
             if not label and st.session_state.edit_mode:
                 label = "➕"
 
+            # Append shortcut to label for hotkey actions
+            if btn_type == "hotkey" and action and label != "➕":
+                label = f"{label} ({action})"
+
             with columns[c]:
                 if label:
                     # Determine button type (primary if selected in edit mode)
