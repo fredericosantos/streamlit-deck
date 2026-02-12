@@ -8,6 +8,20 @@ import hashlib
 from PIL import Image
 from io import BytesIO
 from typing import Dict
+
+# macOS specific imports
+try:
+    from AppKit import NSWorkspace, NSApplicationActivationPolicyRegular
+    from Quartz import (
+        CGWindowListCopyWindowInfo,
+        kCGWindowListOptionOnScreenOnly,
+        kCGWindowListExcludeDesktopElements,
+        kCGNullWindowID,
+    )
+except ImportError:
+    # These might fail if not on macOS or missing pyobjc
+    pass
+
 from ..base.apps import BaseApps
 
 
@@ -128,3 +142,101 @@ class MacOSApps(BaseApps):
             return f"Opened app: {os.path.basename(command)}"
         except Exception as e:
             return f"Error launching app: {e}"
+
+    def get_apps_with_windows(self) -> dict:
+        """
+        Get applications with open windows on macOS.
+        """
+        debug_messages = []
+        try:
+            workspace = NSWorkspace.sharedWorkspace()
+            running_apps = workspace.runningApplications()
+            regular_apps = {}
+
+            for app in running_apps:
+                if app.activationPolicy() == NSApplicationActivationPolicyRegular:
+                    app_name = app.localizedName()
+                    bundle_id = app.bundleIdentifier()
+                    pid = app.processIdentifier()
+
+                    if app_name:
+                        regular_apps[pid] = {
+                            "name": app_name,
+                            "bundle_id": bundle_id,
+                            "pid": pid,
+                            "is_active": app.isActive(),
+                        }
+
+            options = (
+                kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements
+            )
+            window_list = CGWindowListCopyWindowInfo(options, kCGNullWindowID)
+
+            apps_with_windows = {}
+
+            for window in window_list:
+                owner_pid = window.get("kCGWindowOwnerPID")
+                window_layer = window.get("kCGWindowLayer", 0)
+                window_name = window.get("kCGWindowName", "")
+                window_bounds = window.get("kCGWindowBounds", {})
+
+                if window_layer != 0:
+                    continue
+
+                width = window_bounds.get("Width", 0)
+                height = window_bounds.get("Height", 0)
+
+                if width < 50 or height < 50:
+                    continue
+
+                if owner_pid in regular_apps:
+                    app_info = regular_apps[owner_pid]
+
+                    if owner_pid not in apps_with_windows:
+                        apps_with_windows[owner_pid] = {
+                            "name": app_info["name"],
+                            "bundle_id": app_info["bundle_id"],
+                            "pid": owner_pid,
+                            "is_active": app_info["is_active"],
+                            "windows": [],
+                        }
+
+                    apps_with_windows[owner_pid]["windows"].append(
+                        {
+                            "title": window_name if window_name else "<untitled>",
+                            "width": width,
+                            "height": height,
+                            "x": window_bounds.get("X", 0),
+                            "y": window_bounds.get("Y", 0),
+                        }
+                    )
+
+            sorted_apps = sorted(
+                apps_with_windows.values(),
+                key=lambda x: (not x["is_active"], x["name"].lower()),
+            )
+
+            return {"apps": sorted_apps, "debug": " | ".join(debug_messages)}
+
+        except Exception as e:
+            return {"apps": [], "debug": f"Error: {e}"}
+
+    def switch_to_app(self, app_name: str) -> str:
+        """
+        Switch to the specified application on macOS.
+        """
+        try:
+            workspace = NSWorkspace.sharedWorkspace()
+            running_apps = workspace.runningApplications()
+
+            for app in running_apps:
+                if app.localizedName() == app_name:
+                    activated = app.activateWithOptions_(1)
+                    if activated:
+                        return f"Switched to {app_name}"
+                    else:
+                        return f"Failed to activate {app_name}"
+
+            return f"Application '{app_name}' not found"
+        except Exception as e:
+            return f"Error switching to app: {e}"

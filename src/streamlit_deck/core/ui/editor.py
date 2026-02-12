@@ -1,6 +1,6 @@
 import streamlit as st
 import sys
-from streamlit_deck.backend.config import list_scripts, save_layout
+from streamlit_deck.core.backend.config import list_scripts, save_layout
 from streamlit_deck.platform import get_mappings
 from streamlit_deck.shared.app_utils import build_apps_reverse_map
 from streamlit_deck.shared.state_utils import clear_draft_state, init_draft_state

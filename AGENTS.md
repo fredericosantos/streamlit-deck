@@ -88,7 +88,8 @@ The project uses `uv` for dependency management and execution, with Python 3.13+
   import streamlit as st
   from PIL import Image
 
-  from streamlit_deck.backend import config, executor, apps
+  from streamlit_deck.core.backend import config, base_executor
+  from streamlit_deck.platform import get_apps
   ```
 
 ### Naming Conventions

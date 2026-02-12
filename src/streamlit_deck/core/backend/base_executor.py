@@ -3,7 +3,7 @@ import os
 from pynput.keyboard import Key, Controller as KeyboardController, KeyCode
 from pynput.mouse import Button, Controller as MouseController
 from typing import Union
-from streamlit_deck.backend import apps
+from streamlit_deck.platform import get_apps
 
 keyboard = KeyboardController()
 mouse = MouseController()
@@ -186,6 +186,7 @@ def execute_action(action_type: str, payload: str) -> str:
     elif action_type == "mouse":
         return execute_mouse(payload)
     elif action_type == "app":
-        return apps.launch_app(payload)
+        apps_handler = get_apps()
+        return apps_handler.launch_app(payload)
     else:
         return f"Unknown action type: {action_type}"

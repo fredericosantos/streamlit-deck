@@ -1,5 +1,5 @@
 import streamlit as st
-from streamlit_deck.backend.config import (
+from streamlit_deck.core.backend.config import (
     list_layouts,
     save_layout,
     create_default_layout,
