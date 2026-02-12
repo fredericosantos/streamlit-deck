@@ -40,8 +40,8 @@ def render_dock_viewer(apps_handler, installed_apps=None):
                 )
             return
 
-        # Limit to 8 items
-        items_list = list(real_items.items())[:8]
+        # Show all items (flexbox will handle wrapping)
+        items_list = list(real_items.items())
 
         # Build HTML content with clickable images
         html_parts = [
@@ -53,12 +53,16 @@ def render_dock_viewer(apps_handler, installed_apps=None):
             command = item_data.get("command")
 
             if icon_bytes:
-                # Convert icon bytes to base64
-                b64_icon = base64.b64encode(icon_bytes).decode("utf-8")
-                img_src = f"data:image/png;base64,{b64_icon}"
+                # Check if it's SVG or PNG
+                if icon_bytes.startswith(b"<?xml") or icon_bytes.startswith(b"<svg"):
+                    # It's SVG, use it directly
+                    img_src = f"data:image/svg+xml;base64,{base64.b64encode(icon_bytes).decode('utf-8')}"
+                else:
+                    # Assume it's PNG
+                    img_src = f"data:image/png;base64,{base64.b64encode(icon_bytes).decode('utf-8')}"
             else:
-                # Use a placeholder or default icon
-                img_src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+                # Use a placeholder - 1x1 transparent PNG
+                img_src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 
             # Create clickable image with app name as ID
             # We'll use the index as the ID and map it back to the command
@@ -75,13 +79,17 @@ def render_dock_viewer(apps_handler, installed_apps=None):
         # Use click_detector to detect which icon was clicked
         clicked = click_detector(html_content)
 
-        if clicked is not None:
+        if clicked and clicked.strip():
             # clicked is the ID (index) of the clicked item
-            clicked_idx = int(clicked)
-            if 0 <= clicked_idx < len(items_list):
-                name, item_data = items_list[clicked_idx]
-                command = item_data.get("command")
-                msg = apps_handler.launch_app(command)
-                st.toast(msg)
+            try:
+                clicked_idx = int(clicked)
+                if 0 <= clicked_idx < len(items_list):
+                    name, item_data = items_list[clicked_idx]
+                    command = item_data.get("command")
+                    msg = apps_handler.launch_app(command)
+                    st.toast(msg)
+            except ValueError:
+                # Ignore invalid click values
+                pass
     else:
         st.info("No docked items found.")
