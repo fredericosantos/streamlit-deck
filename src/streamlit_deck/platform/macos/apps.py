@@ -294,11 +294,19 @@ class MacOSApps(BaseApps):
 
         # Debug if empty
         if not docked:
+            debug_info = f"Plist loaded, but no items. persistent-apps: {len(plist_data.get('persistent-apps', []))}, persistent-others: {len(plist_data.get('persistent-others', []))}\n"
+            urls = []
+            for item in plist_data.get("persistent-apps", [])[:5]:  # first 5
+                tile_data = item.get("tile-data", {})
+                file_data = tile_data.get("file-data", {})
+                url = file_data.get("_CFURLStringClassic", "")
+                urls.append(url)
+            debug_info += f"Sample URLs: {urls}"
             docked["_debug_empty"] = {
                 "command": "",
                 "icon_bytes": None,
                 "type": "debug",
-                "data": f"Plist loaded, but no items. persistent-apps: {len(plist_data.get('persistent-apps', []))}, persistent-others: {len(plist_data.get('persistent-others', []))}",
+                "data": debug_info,
             }
 
         return dict(sorted(docked.items()))
