@@ -27,11 +27,29 @@ except ImportError:
 from ..base.apps import BaseApps
 
 
+# Default icon for when extraction fails
+DEFAULT_ICON_BYTES = None
+
+
+def _get_default_icon():
+    global DEFAULT_ICON_BYTES
+    if DEFAULT_ICON_BYTES is None:
+        from PIL import Image, ImageDraw
+
+        img = Image.new("RGBA", (64, 64), (100, 149, 237, 255))  # Cornflower blue
+        draw = ImageDraw.Draw(img)
+        draw.rectangle([16, 16, 48, 48], fill=(255, 255, 255, 255))  # White square
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        DEFAULT_ICON_BYTES = buffer.getvalue()
+    return DEFAULT_ICON_BYTES
+
+
 class MacOSApps(BaseApps):
     def extract_macos_icon(self, app_path: str, size: tuple = (64, 64)) -> bytes:
         """
         Extracts icon from a macOS .app bundle and returns it as bytes.
-        Prefers SVG if available, falls back to PNG from .icns
+        Prefers icns library if available, falls back to PIL
         """
         resources_dir = os.path.join(app_path, "Contents", "Resources")
 
@@ -58,7 +76,7 @@ class MacOSApps(BaseApps):
                     icon_path = os.path.join(resources_dir, file)
                     break
             else:
-                return None
+                return _get_default_icon()
 
         try:
             # Open the .icns file with Pillow
@@ -72,7 +90,7 @@ class MacOSApps(BaseApps):
                 img.save(buffer, format="PNG")
                 return buffer.getvalue()
         except Exception:
-            return None
+            return _get_default_icon()
 
     def get_cached_icon(self, app_path: str) -> bytes:
         """Get icon from cache or extract and cache it."""
@@ -291,7 +309,11 @@ class MacOSApps(BaseApps):
                 path = urllib.parse.unquote(url[7:])
                 label = tile_data.get("file-label", os.path.basename(path))
                 # For folders, no icon for now
-                docked[label] = {"command": path, "icon_bytes": None, "type": "folder"}
+                docked[label] = {
+                    "command": path,
+                    "icon_bytes": _get_default_icon(),
+                    "type": "folder",
+                }
 
         # Debug if empty
         if not docked:
